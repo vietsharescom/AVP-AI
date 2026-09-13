@@ -169,6 +169,127 @@ không phải chỉ thiếu 1 biến thể hậu tố.
 QC) xác nhận Quantity-per-box và thêm vào bảng — hệ thống không thể tự suy
 đoán con số này.
 
+## 6b. Nghiệp vụ mới xác nhận 2026-09-13 — đọc trực tiếp PACKING SLIPS.xlsm
+
+- **Mô hình nghiệp vụ = "Subcontracting" (gia công thuê ngoài)** theo đúng
+  thuật ngữ ERP chuẩn (xác nhận qua Odoo thật, module `mrp_subcontracting`):
+  Infasco vẫn là CHỦ SỞ HỮU nguyên liệu trong lúc nó nằm ở AVP (không phải
+  AVP mua nguyên liệu) — nguyên liệu giao trong **thùng POT** (tài sản tái
+  sử dụng của Infasco).
+- **Vòng đời 1 Pot#**: nhận (có nguyên liệu) → rỗng (đã lựa/đóng gói hết) →
+  **phải trả POT rỗng lại cho Infasco** trên chính chuyến xe xuất hàng. Hiện
+  app **CHƯA track bước "đã trả POT rỗng"** — có thể tính được vì Pot# đã
+  1:1 với Traveler (xem mục 3), nhưng chưa làm.
+- **2 số trên header Packing Slip thật (`PACKING SLIP` sheet, ô B12/B13),
+  cả 2 đều GÕ TAY, không có công thức nào tính ra**:
+  - `Total Pallets` = số pallet **thành phẩm** (boxes đã đóng gói) chất lên
+    xe để giao cho Infasco.
+  - `Total Empty` = số **POT rỗng** trả lại Infasco (không phải đổi pallet
+    logistics như suy đoán ban đầu).
+- **Cột NOTES (J) trên Packing Slip** = `VLOOKUP(Traveler, WORK ORDER, 10)`
+  — lấy đúng cột "NOTE" của WORK ORDER, chứa ghi chú chất lượng/xử lý đặc
+  biệt theo TỪNG traveler (vd thật: "SORT FOR DAMAGED LOCKING-DMF FORM",
+  "0 QUANTITY-INFASCO KEEP THE TRAVELER", "WAS TR#715868-...") — khác với ô
+  C12 (ghi chú tự do gõ tay kiểu "Traveler-Part#-Máy Boxes CTNS", không có
+  công thức, có thể là note pallet mix, chưa xác nhận 100%).
+- **AVP thực ra phục vụ hàng chục khách hàng khác ngoài Infasco** (xác nhận
+  qua bảng `client` thật trong PartControl: Jobal, L&M Fasteners, Thompson
+  Fasteners, Ultra Form, Dana Canada, CMI, Stelfast...) — toàn bộ app
+  AVP_AI hiện tại **chỉ scope cho Infasco**. Giải thích luôn lý do dãy số
+  Packing Slip không chạy liên tục +1 (khách khác dùng chung dãy số).
+- **Dữ liệu lịch sử `ARCHIVE`/`ARCHIVE2` trong PACKING SLIPS.xlsm chất
+  lượng kém** (đọc trực tiếp, không suy đoán): cột không có tên, trộn lẫn
+  nhiều loại giao dịch (xuất hàng/trả hàng/chuyển nội bộ/giao mẫu) không có
+  cột phân loại, sai kiểu dữ liệu trong cột số (vd "BIN" trong cột BOXES),
+  và `ARCHIVE2` là 1 cột duy nhất nhét nhiều dòng chữ tự do không parse
+  được bằng máy. App AVP_AI hiện tại đã tránh được các lỗi này (mỗi cột có
+  kiểu rõ ràng, mỗi dòng atomic) nhưng vẫn thiếu field "loại giao dịch" nếu
+  sau này cần track return/internal-move/sample.
+
+## 6c. Ước tính labor-hour gõ tay WORK ORDER (2026-09-13, ước tính kỹ thuật — CHƯA đo thật)
+
+- Dữ liệu thật: trung bình **78,5 traveler/ngày** (113 ngày mẫu thật từ
+  `SUMMARY IN&OUT`, dao động 45-98/ngày). WORK ORDER xác nhận **0/1.853
+  dòng** ở cả 10 cột (TRAVELER/PART#/POT/MACHINE/WEIGHT/PIECES/PO/DATE/
+  LOT NO./NOTE) có công thức — **100% gõ tay**.
+- **Giả định** (chuẩn ngành data-entry phổ biến, KHÔNG phải đo thật tại
+  AVP — cần đo lại bằng bấm giờ thật nếu dùng cho báo cáo chính thức): 8-15
+  giây/ô (tìm trên giấy + gõ + kiểm tra lại).
+- **Ước tính riêng WORK ORDER**: 78,5 traveler × 10 cột = ~785 ô/ngày →
+  **~1,7-3,3 giờ/ngày** (trung bình ~2,2 giờ/ngày) chỉ để gõ tay bảng gốc
+  này — CHƯA tính Scanning Sheet/CHECKING SUMMARY (~20 cột/traveler), copy
+  tay qua ARCHIVE2, hay gõ Packing List mỗi chuyến xe.
+- **Ước tính tổng cả pipeline thủ công**: có thể lên tới **~4-6+ giờ/ngày**
+  (~1.000-1.500 giờ/năm, 250 ngày làm việc) thời gian hành chính thuần túy
+  — chưa kể công lựa/đóng gói vật lý.
+
+## 6d. Ước tính labor-hour TOÀN pipeline hành chính (2026-09-13, ước tính — CHƯA đo thật)
+
+Mở rộng mục 6c theo đúng 5 bước Andy mô tả (nhận PO → lập WORK ORDER → gửi
+SX/QC dán Split Form → thu gom + gõ lại → đối chiếu kho quyết định "good" →
+gõ Scanning Sheet → gõ Packing List + đếm Pallets/Empty):
+
+| Bước | Việc | Ước tính gõ thuần/ngày |
+|---|---|---|
+| 1. Lập WORK ORDER (PO→Traveler) | 10 cột × 78,5 traveler/ngày (0% công thức, đã xác nhận) | ~2,2 giờ |
+| 3. Thu gom Split Form giấy + cập nhật | Đi lại thu gom (không phải gõ) | ~0,5-0,75 giờ |
+| 4. Đối chiếu kho + gõ Scanning Sheet | ~15 cột thực dùng × 78,5 (19/20 cột CHECKING SUMMARY xác nhận 0% công thức, chỉ "Off" có) | ~3,3 giờ |
+| 5. Gõ Packing List + đếm Pallets/Empty | Chỉ 2 ô/traveler (PO/Part#/Notes tự VLOOKUP) | ~0,5 giờ |
+| **Tổng gõ thuần** | | **~6,5-7,3 giờ/ngày** |
+
+**Áp hệ số "mò tìm số liệu" Andy đề xuất (2-3 lần thời gian gõ)** — dò
+VLOOKUP qua 3 sheet, đọc hiểu chữ tự do (SORT&RETURN/comma-list Reject),
+kiểm tra công thức sống hay đã khóa cứng, đối chiếu kho vật lý:
+
+```
+Tổng thời gian thật = Gõ + Mò = ~7h + (2-3)×7h = ~21-28 giờ/ngày
+```
+
+→ Tổng khối lượng công việc (chia nhiều nhân viên: kế hoạch+QC+kho, không
+phải 1 người), quy năm (250 ngày): **~5.250-7.000 giờ/năm** chỉ phần hành
+chính/giấy tờ, chưa tính công lựa/đóng gói vật lý. Vẫn là ước tính có giả
+định rõ ràng (tốc độ gõ 8-15s/ô + hệ số mò 2-3 lần) — cần đo thời gian thật
+nếu dùng cho báo cáo chính thức với chủ.
+
+## 6e. Phân tích thêm các sheet phụ (2026-09-13) — phát hiện lớn: 2 "nguồn sự thật" đã lệch nhau THẬT
+
+- **`PACKING SLIPS.xlsm` và `DAILY LOG CHECK SHEET.xlsm` mỗi file có 1 bảng
+  "WORK ORDER" RIÊNG** (1.847 vs 5.224 traveler). Trong số traveler có ở cả
+  2 file, **797 traveler bị lệch SHIPPED/PS** — ví dụ thật: traveler 704978
+  file 1 nói PS=29979, file 2 nói PS=30072; traveler 701128 file 1 nói CHƯA
+  xuất, file 2 nói ĐÃ xuất. **Bằng chứng cụ thể cho rủi ro "2 sổ cái không
+  đồng bộ"** đã cảnh báo ở các mục trước — đây không còn là giả thuyết, là
+  lỗi thật đang tồn tại trong dữ liệu lịch sử.
+- **`Sheet1`** (PACKING SLIPS.xlsm, 49 dòng): bảng nháp tạm cho batch mới
+  (cùng PO/ngày) trước khi merge tay vào WORK ORDER chính — thêm 1 bước
+  copy tay nữa ngoài ARCHIVE2.
+- **`Sheet2`**: template rỗng cùng cấu trúc Table1 (Packing Slip) — khả
+  năng dùng để reset Table1 mỗi ngày.
+- **`Status`** — có sẵn danh sách trạng thái sản xuất chi tiết hơn đã từng
+  thiết kế: `Loaded, Not started, Preloaded, Running, Shipped` — nhưng quét
+  toàn bộ workbook chỉ thấy xuất hiện trong chính sheet Status, **chưa bao
+  giờ được dùng thật** ở nơi khác — tính năng thiết kế rồi bỏ dở.
+- **`Status` cột Machine — DANH SÁCH MÃ MÁY THẬT HỢP LỆ (nguồn dữ liệu gốc
+  đã tìm được cho gap "bảng quy ước MC#" nêu ở mục 8 ARCHITECTURE.md)**:
+  BF 102-112 (11 mã), MC 4/16/19/24/26/37/51/61/74/78/112 (11 mã), PCKY,
+  TABLE 1, TABLE 2. Có thể dùng để validate MC#/Machine đọc từ OCR.
+- **`SHIPPED`** (DAILY LOG CHECK SHEET.xlsm, 32 dòng): 1 danh sách tay
+  KHÁC nữa track traveler đã xuất (TR/Part#/Pot#, không có PS/ngày) — sổ
+  sách thứ 3 cho cùng 1 khái niệm "đã xuất chưa".
+- **`QuantityControl`** (1.010 dòng): bảng Part#→Quantity tương tự
+  PartControl nhưng có vẻ là bản cũ/khác — cũng xác nhận thêm nhiều khách
+  hàng khác Infasco (S & E MANUFACTURING, JTF DAVCO, Davco...).
+- **`Crosscheckk`**: chỉ 1 dòng dữ liệu, toàn bộ ô ghi literal **"Please
+  enter"** — 1 tính năng đối chiếu dự định làm nhưng bị bỏ dở hoàn toàn,
+  chưa từng dùng thật.
+
+**Kết luận chung**: hệ thống Excel cũ có xu hướng **tạo bảng mới mỗi khi
+cần 1 tính năng**, không bao giờ hợp nhất lại — dẫn tới nhiều "nguồn sự
+thật" song song cho cùng 1 khái niệm (SHIPPED có ít nhất 3 nơi ghi khác
+nhau) và đã THẬT SỰ lệch nhau (797 ca). Đây là lý do cốt lõi nhất ủng hộ
+đề xuất "1 sổ cái duy nhất" ở mục 8 ARCHITECTURE.md — không phải lý thuyết
+suông, mà để tránh chính xác loại lỗi đã xảy ra thật này.
+
 ## 7. Việc code hiện tại cần bổ sung (Technical TODO)
 
 1. ~~Thêm S8(Type)→"BOLTS" vào DESCRIPTION~~ — **đã loại bỏ**, không có bằng

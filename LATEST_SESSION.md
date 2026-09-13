@@ -14,15 +14,15 @@
 
 | Trường | Giá trị |
 |---|---|
-| Session | SES-20260912-001 (phiên dài, nhiều hạng mục, kéo qua 2 ngày) |
-| Ngày | 2026-09-11 → 2026-09-13 |
+| Session | SES-20260912-001 (phiên rất dài, kéo qua 2 ngày, nhiều hạng mục) |
+| Ngày | 2026-09-11 → 2026-09-13 (đóng phiên) |
 | Chủ dự án | Andy Phan (Viet), Maple Leaf Group |
 | Thư mục | `D:\AVP_AI` |
 | Web app | `D:\AVP_AI\webapp` (Next.js + TypeScript) |
 | Database | Google Sheets, ID `1TWYKdRHv3MioEBf2DHAvUGlCvZxsr-KXQKLCR_3BkJ4` |
-| Git | Repo `webapp` — đã commit tới `be65200` (mục 3.4 cũ). **Phiên 2026-09-12/13 có thêm sửa code (mục 3.5) nhưng CHƯA COMMIT** — 3 file sửa + 1 route mới đang nằm ở working tree (`git status` trong `webapp/`). **CHƯA push GitHub**. Repo gốc `D:\AVP_AI` — đã push lên `https://github.com/vietsharescom/AVP-AI.git` (không tính code webapp mới nhất). |
-| Link demo | https://bumper-thomson-conferencing-negotiation.trycloudflare.com (đã kiểm tra còn sống lúc đóng phiên 2026-09-13 — tunnel tạm, sẽ chết khi tắt máy/tunnel restart, link đổi mỗi lần) |
-| Trạng thái lúc đóng phiên | Server `localhost:3000` chạy `npm run start` (production build, đã rebuild+restart nhiều lần trong phiên để áp dụng code mới, lần cuối đã verify 200 OK). Cần restart (`npm run build && npm run start`) nếu máy tắt/mở lại. |
+| Git | **Đã commit + push CẢ 2 repo lúc đóng phiên** (Andy xác nhận "commit push" 2026-09-13). Repo gốc: push lên `https://github.com/vietsharescom/AVP-AI.git`. Repo `webapp`: commit local (KHÔNG có remote GitHub riêng — xem GAP cũ mục 4, vẫn chưa giải quyết). |
+| Link demo | https://bumper-thomson-conferencing-negotiation.trycloudflare.com (đã kiểm tra còn sống lúc đóng phiên 2026-09-13 20:xx — tunnel tạm, sẽ chết khi tắt máy/tunnel restart, link đổi mỗi lần) |
+| Trạng thái lúc đóng phiên | Server `localhost:3000` chạy `npm run start` (production build, đã rebuild+restart rất nhiều lần trong phiên, lần cuối verify 200 OK). Cần restart (`npm run build && npm run start`) nếu máy tắt/mở lại. |
 
 ---
 
@@ -231,8 +231,85 @@ trước; phiên này **redesign/sửa/mở rộng đáng kể**:
   **chưa xác nhận đã sửa xong**.
 - **Chưa làm** (đề xuất, chưa có quyết định): bảng quy ước/reference table
   cho các field dạng enum (Shift/Machine/Operator code/Type) để đối chiếu
-  OCR — cần Andy cung cấp nguồn dữ liệu gốc (danh sách máy/operator thật)
-  trước khi làm, không tự suy đoán.
+  OCR — **ĐÃ TÌM ĐƯỢC NGUỒN THẬT** ở mục 3.6 dưới (sheet `Status` trong
+  PACKING SLIPS.xlsm có sẵn danh sách 25 mã máy hợp lệ) — chưa code, chỉ
+  mới ghi nhận nguồn.
+
+### 3.6 Tiếp tục phiên 2026-09-13 (redesign UI khâu 3/4 + nghiên cứu sâu Excel cũ + báo cáo cuối phiên)
+
+**A. Redesign UI theo yêu cầu Andy (đã code, CHƯA test lại trên trình duyệt
+thật sau lần sửa cuối — ưu tiên #1 phiên sau):**
+- Khâu 3 (Scan): sửa dedupe khi gộp dòng từ nhiều nguồn (Scanning Sheet +
+  Split Form trùng cùng 1 sự kiện), sắp lại thứ tự cột theo độ quan trọng,
+  đổi toàn bộ độ rộng cột sang `%` (`table-fixed`) thay vì `ch`/`rem` cố
+  định — co giãn thật theo màn hình, gộp Shift/Operator/Machine/... vào 1
+  nhóm ẩn mặc định (toggle). Sửa bug thật: cờ khóa nút "Lưu" không được lưu
+  bền (localStorage) nên tải lại trang là mất tác dụng — đã sửa.
+- Khâu 4 (Packing List): thêm ô search trung tâm ở đầu trang
+  (`GlobalSearchBar.tsx`) tra xuyên RawMaterial+FinishGood+PartControl, thu
+  gọn khâu 1-3 mặc định bằng `Collapsible.tsx`+`HomeClient.tsx` (khâu 4 mở
+  sẵn ngay dưới ô search), thêm "+ Thêm dòng theo Traveler#" (tự điền
+  PO/Part#/Pot# — đúng thao tác VLOOKUP thật nhân viên đã quen, tách logic
+  dùng chung ra `packingListLine.ts` + route mới `/api/packing-list/line`),
+  thêm bước "Xem trước Packing Slip" (preview đúng bố cục chứng từ thật)
+  trước khi bấm nút Duyệt thật, dời ô "Số Packing Slip" lên gần ô search
+  (**vẫn giữ nhập tay** — xem lý do ở mục B).
+- File thay đổi: `webapp/src/components/{ScanSection,PackingListSection,
+  Collapsible,GlobalSearchBar,HomeClient}.tsx`, `webapp/src/lib/
+  packingListLine.ts`, `webapp/src/app/api/packing-list/{generate,line}/
+  route.ts`, `webapp/src/app/page.tsx`. Build+lint pass sau mỗi bước, server
+  đã restart nhiều lần — nhưng **Andy chưa xác nhận đã thử lại giao diện
+  mới trên trình duyệt thật sau các sửa cuối** (đặc biệt: search trung tâm,
+  add-by-traveler, preview Packing Slip).
+
+**B. Nghiên cứu sâu 2 file Excel cũ — phát hiện lớn nhất phiên này:**
+- **PACKING SLIPS.xlsm không có công thức nào tự sinh số PS** (gõ tay,
+  xác nhận bằng đọc trực tiếp ô — không có formula) → giữ nguyên quyết định
+  không tự động sinh số PS trong AVP_AI (rủi ro trùng số PS thật ngoài đời
+  vì dãy số dùng chung nhiều khách hàng — xem BRS_TRS.md mục 6c).
+- **Cột SHIPPED/PS trong WORK ORDER dùng công thức VÒNG LẶP tự tham chiếu**
+  (circular, cần bật "Iterative Calculation") — kiểm tra thật thấy 1 số
+  dòng vẫn còn công thức sống (rủi ro tính lại sai), số khác đã bị nhân
+  viên tô vàng + Paste-Values khóa cứng tay để "cứu" dữ liệu — xác nhận
+  thiết kế `shipped=TRUE` ghi 1 lần tường minh của AVP_AI là đúng hướng.
+- **PHÁT HIỆN LỚN NHẤT**: `PACKING SLIPS.xlsm` và `DAILY LOG CHECK
+  SHEET.xlsm` mỗi file giữ 1 bảng "WORK ORDER" RIÊNG (1.847 vs 5.224
+  traveler) — trong số trùng nhau, **797 traveler bị lệch SHIPPED/PS
+  thật**. `SUMMARY IN&OUT` (báo cáo KPI ngày cho quản lý) **0/30 ngày mẫu
+  khớp với WORK ORDER thật**, có ngày lệch tới 105 dòng — báo cáo KPI hiện
+  tại của AVP **không đáng tin**. Chi tiết đầy đủ: `BRS_TRS.md` mục 6b-6e.
+- Tìm thấy sheet `Status` (PACKING SLIPS.xlsm) có sẵn **danh sách 25 mã
+  máy hợp lệ thật** (BF 102-112, MC 4-112, PCKY, TABLE 1/2) — nguồn dữ liệu
+  gốc cho việc validate MC#/Machine sau này, và 1 danh sách trạng thái sản
+  xuất 5 bậc (Loaded/Not started/Preloaded/Running/Shipped) **được thiết kế
+  nhưng chưa bao giờ dùng thật**.
+- Xác nhận qua Odoo 17 thật (XML-RPC, DB `xekem`): mô hình nghiệp vụ AVP
+  đúng chuẩn ERP gọi là **"Subcontracting"** — vật liệu vẫn là của khách
+  hàng (Infasco) trong lúc nằm ở AVP, khớp field `is_subcontractor`/
+  `property_stock_subcontractor` của Odoo thật.
+- Xác nhận: **AVP thực ra phục vụ hàng chục khách hàng khác ngoài Infasco**
+  (PartControl thật: Jobal, Thompson Fasteners, Ultra Form, Dana Canada,
+  S & E MANUFACTURING...) — giải thích tại sao dãy số PS không chạy liên
+  tục +1.
+- Ước tính lao động hành chính (có giả định rõ ràng, CHƯA đo thật):
+  ~21-28 giờ/ngày, quy năm ~5.250-7.000 giờ/năm — chi tiết `BRS_TRS.md`
+  mục 6c/6d.
+
+**C. Tài liệu/báo cáo cuối phiên (đã tạo mới, đã publish):**
+- `BAO_CAO_DANH_GIA_HE_THONG.md` + artifact "Kiểm Toán Quy Trình AVP"
+  (https://claude.ai/code/artifact/e7b4f07b-12e3-4ebe-933e-5f918f6d8162) —
+  báo cáo đánh giá hiện trạng, bảng 8 giai đoạn × 7 cột, đối chiếu 8 nhóm
+  nguồn lực ERP, dùng để thuyết phục chủ.
+- `Bao_Cao_Danh_Gia_He_Thong_AVP.docx` — bản Word cùng nội dung, đã gửi
+  cho Andy qua SendUserFile.
+- `THIET_KE_HE_THONG_MOI.md` + artifact "Thiết Kế Hệ Thống AVP Mới"
+  (https://claude.ai/code/artifact/b6347250-5c6d-4378-8c9a-79ba735e18bb) —
+  thiết kế đề xuất: bảng Input/Output 8 công đoạn theo ERP hiện đại (voice/
+  camera/OCR), so sánh hiện tại vs mới, sơ đồ kiến trúc phân lớp + pipeline
+  — tham khảo trực tiếp Odoo 17 thật + Ops_Ai (ISO 9001 Cl.8.7 PASS/HOLD/
+  CONCESSION, equipment_status) + KhoAI (voice/camera capture).
+- Andy tự tạo thêm thư mục `Report/` (copy các file trên + PDF export 2
+  artifact) — không đụng vào, chỉ đã thêm vào git nếu Andy xác nhận commit.
 
 ---
 
@@ -256,9 +333,8 @@ xác nhận trước.
   lỗi**, không còn là "có thể 2 lot hợp lệ" như ghi nhận trước. CHƯA XÓA
   gì. Andy vẫn cần xem chứng từ giấy gốc 717671 để quyết định cuối.
 - **GAP-005**: Chưa có test tự động.
-- ~~GAP-006~~: **ĐÃ XONG** — code webapp đã commit tới `be65200`. Phiên
-  2026-09-12/13 có sửa thêm code (mục 3.5) nhưng **CHƯA COMMIT** (khác với
-  GAP-006 cũ đã commit) — cần Andy xác nhận trước khi commit/push.
+- ~~GAP-006~~: **ĐÃ XONG** — toàn bộ code webapp + root đã commit VÀ PUSH
+  lúc đóng phiên 2026-09-13 (Andy xác nhận "commit push"). Xem mục 1 (git).
 - **GAP-007**: PartControl 21 mã Part# thiếu Quantity/box, chưa ai xác
   nhận (xem `BRS_TRS.md` mục 6).
 - **GAP-008**: Traveler **718865** đang lưu sai `po=193904` trong
@@ -282,6 +358,19 @@ xác nhận trước.
   nhiều traveler chung MC#+ca+ngày — không rõ là bình thường hay lỗi có
   sẵn. Cảnh báo "trùng máy" trong code vẫn giữ nguyên nhưng độ tin cậy CHƯA
   XÁC NHẬN. Andy chọn "chưa rõ, để sau".
+- **GAP-013 (mới 2026-09-13, chưa test)**: redesign UI khâu 3/4 (search
+  trung tâm, thu gọn khâu 1-3, add-by-traveler, preview Packing Slip — xem
+  mục 3.6.A) đã build/lint pass và server đã restart, nhưng **Andy CHƯA
+  xác nhận đã thử lại trên trình duyệt thật** sau các sửa cuối cùng của
+  phiên. Ưu tiên #1 phiên sau: mở lại `/` và thử từng tính năng mới.
+- **GAP-014 (mới 2026-09-13, phát hiện lớn, chưa xử lý)**: 2 file Excel
+  (`PACKING SLIPS.xlsm`, `DAILY LOG CHECK SHEET.xlsm`) mỗi file giữ 1 bảng
+  WORK ORDER RIÊNG, đã lệch nhau THẬT ở 797 traveler (SHIPPED/PS khác
+  nhau). `SUMMARY IN&OUT` sai 0/30 ngày mẫu so với WORK ORDER thật. Đây là
+  lỗi ĐANG TỒN TẠI trong dữ liệu vận hành hiện tại của AVP (không phải lỗi
+  của AVP_AI) — Andy cần biết để không tin tưởng mù quáng vào 2 file này
+  khi ra quyết định. Xem `BRS_TRS.md` mục 6e, và báo cáo riêng
+  `BAO_CAO_DANH_GIA_HE_THONG.md`.
 
 ### Việc đang mở (chưa quyết định)
 - **"Box QTY 31.000" trên Split Form** nghĩa là gì — nghiêng về giả
@@ -303,27 +392,30 @@ xác nhận trước.
 ## 5. BẮT ĐẦU PHIÊN SAU TỪ ĐÂY
 
 ### Việc ưu tiên tiếp theo
-1. **Xác nhận Andy đã tự sửa tay xong chưa** — traveler 718865 (`po`
+1. **Thử lại UI mới trên trình duyệt thật** (GAP-013) — search trung tâm,
+   thu gọn khâu 1-3, add-by-traveler khâu 4, preview Packing Slip — CHƯA
+   được xác nhận hoạt động đúng sau các sửa cuối cùng của phiên.
+2. **Xác nhận Andy đã tự sửa tay xong chưa** — traveler 718865 (`po`
    193904→193902, GAP-008) và traveler 717771 (`pot` 282→18, GAP-010) —
    nếu chưa, đưa lại đúng vị trí ô cần sửa.
-2. Hỏi Andy chốt lại GAP-004 (717671) — có chứng từ giấy gốc để đối
+3. Hỏi Andy chốt lại GAP-004 (717671) — có chứng từ giấy gốc để đối
    chiếu không, hay giữ nguyên chờ (bằng chứng 100% mới đã củng cố hướng
    "là lỗi", xem mục 4).
-3. **Andy xác nhận có COMMIT code webapp phiên 2026-09-12/13 không**
-   (3 file sửa + 1 route mới, chưa commit — xem mục 1) — chỉ commit khi
-   Andy đồng ý, chưa push GitHub.
-4. Chốt nghĩa "Box QTY 31.000" và ưu tiên `finishedPartNo` vs `partNo`
+4. Đọc lại 2 báo cáo mới (`BAO_CAO_DANH_GIA_HE_THONG.md`,
+   `THIET_KE_HE_THONG_MOI.md` + 2 artifact link ở mục 3.6.C) — quyết định
+   độ ưu tiên nếu muốn triển khai hướng thiết kế mới (nhỏ/vừa/lớn đã đề
+   xuất trong `ARCHITECTURE.md` mục 8.4/8.5).
+5. Chốt nghĩa "Box QTY 31.000" và ưu tiên `finishedPartNo` vs `partNo`
    (Andy sẽ hỏi phía Infasco).
-5. Chốt nghĩa thật của MC# (GAP-012) — 1 máy độc quyền hay trạm dùng
+6. Chốt nghĩa thật của MC# (GAP-012) — 1 máy độc quyền hay trạm dùng
    chung — để biết cảnh báo "trùng máy" có đáng tin không.
-6. Nếu dùng thật: cần server chạy 24/7 — bàn phương án deploy (Vercel,
-   VPS...).
-7. Kiểm tra lại link tunnel — link đổi mỗi lần restart, cần xác nhận
+7. Nếu dùng thật: cần server chạy 24/7 — bàn phương án deploy (Vercel,
+   VPS...). Cân nhắc luôn: webapp chưa có remote GitHub riêng (chỉ commit
+   local) — hỏi Andy có muốn tạo repo riêng hay dùng chung `AVP-AI`.
+8. Kiểm tra lại link tunnel — link đổi mỗi lần restart, cần xác nhận
    link mới nếu máy đã tắt/mở lại.
 
 ### Cảnh báo cho phiên sau
-- ⚠ KHÔNG tự commit/push git khi Andy chưa xác nhận — phiên 2026-09-12/13
-  có sửa code (mục 3.5) nhưng cố tình CHƯA commit, đang chờ Andy duyệt.
 - ⚠ Server dev có thể đã tắt nếu máy tắt — restart bằng `npm run build &&
   npm run start` trong `D:\AVP_AI\webapp`, port 3000. Tunnel cloudflared
   cũng cần chạy lại, link SẼ ĐỔI.
@@ -336,6 +428,10 @@ xác nhận trước.
   bằng PDF thật, để ý cảnh báo mới (Pot# lệch RawMaterial, trùng LOT#,
   trùng máy) có báo đúng không, đặc biệt file nào KHÔNG bị sideways (fix
   xoay chỉ tác động trang khổ dọc, không đụng trang đã đúng chiều).
+- ⚠ **2 file Excel vận hành hiện tại của AVP có lỗi thật đang tồn tại**
+  (GAP-014: 797 traveler lệch giữa 2 bản WORK ORDER, SUMMARY IN&OUT sai
+  0/30 ngày) — đây KHÔNG phải lỗi của AVP_AI, nhưng Andy cần biết trước khi
+  dùng 2 file đó để đối chiếu/ra quyết định.
 - ⚠ Nhiều traveler TEST-* (TEST900001-5, TEST-PARTIAL...) và PO test
   (TEST-717365, TEST-LOTKEY, TEST-HOLD, TEST-CHECKS...) đang nằm trong
   Sheet thật, đánh dấu rõ "TEST" trong PO/note — không xóa (theo đúng
@@ -373,7 +469,9 @@ xác nhận trước.
 
 ---
 
-*Session Report — cập nhật lần cuối 2026-09-13 (phiên dài, kéo qua 2
-ngày — xem mục 3 cho danh sách đầy đủ, mục 3.5 là phần mới nhất).*
+*Session Report — cập nhật lần cuối 2026-09-13 (đóng phiên, đã commit+push,
+phiên dài kéo qua 2 ngày — xem mục 3 cho danh sách đầy đủ, mục 3.6 là phần
+mới nhất: redesign UI khâu 3/4 + phát hiện 797 traveler lệch giữa 2 file
+Excel + báo cáo đánh giá/thiết kế mới đã publish).*
 *Đọc lại đầu phiên sau; cập nhật lại file này ở cuối mỗi phiên làm việc
 tiếp theo.*

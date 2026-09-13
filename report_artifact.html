@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Kiểm Toán Quy Trình AVP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EEF1F1;
+    --surface:#FFFFFF;
+    --surface-2:#E2E8E8;
+    --surface-3:#D7DEDD;
+    --ink:#16212B;
+    --ink-muted:#54626C;
+    --ink-faint:#7C8890;
+    --line:#CAD3D3;
+    --line-strong:#AAB6B6;
+    --accent:#B5680A;
+    --accent-ink:#5C3305;
+    --accent-soft:#F3E3CB;
+    --good:#1D7A4C;
+    --good-soft:#DCEFE3;
+    --bad:#AE3B2E;
+    --bad-soft:#F6DFDA;
+    --shadow: 0 1px 2px rgba(22,33,43,0.06), 0 6px 16px rgba(22,33,43,0.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#10151B;
+      --surface:#161D25;
+      --surface-2:#1E2731;
+      --surface-3:#28323D;
+      --ink:#E7EBEC;
+      --ink-muted:#9AA7B0;
+      --ink-faint:#71808A;
+      --line:#2C3742;
+      --line-strong:#3C4A56;
+      --accent:#E0A030;
+      --accent-ink:#2C1D06;
+      --accent-soft:#3A2C13;
+      --good:#4FBE84;
+      --good-soft:#173424;
+      --bad:#E2695A;
+      --bad-soft:#3B1F1B;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 20px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#10151B;
+    --surface:#161D25;
+    --surface-2:#1E2731;
+    --surface-3:#28323D;
+    --ink:#E7EBEC;
+    --ink-muted:#9AA7B0;
+    --ink-faint:#71808A;
+    --line:#2C3742;
+    --line-strong:#3C4A56;
+    --accent:#E0A030;
+    --accent-ink:#2C1D06;
+    --accent-soft:#3A2C13;
+    --good:#4FBE84;
+    --good-soft:#173424;
+    --bad:#E2695A;
+    --bad-soft:#3B1F1B;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 20px rgba(0,0,0,0.35);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Be Vietnam Pro', 'Segoe UI', sans-serif;
+    font-size:16px;
+    line-height:1.6;
+    padding-inline:20px;
+    padding-block:0 64px;
+  }
+  .wrap{max-width:900px;margin-inline:auto;}
+  h1,h2,h3{font-family:'Oswald', 'Arial Narrow', sans-serif;text-wrap:balance;letter-spacing:0.01em;}
+  .mono{font-family:'JetBrains Mono','Consolas',monospace;font-variant-numeric:tabular-nums;}
+  a{color:var(--accent-ink);}
+
+  /* ---------- Masthead ---------- */
+  .masthead{
+    padding-block:40px 28px;
+    border-bottom:3px solid var(--ink);
+  }
+  .eyebrow{
+    display:flex;align-items:center;gap:10px;
+    font-family:'Oswald',sans-serif;
+    text-transform:uppercase;letter-spacing:0.16em;
+    font-size:12.5px;color:var(--ink-muted);
+    margin-bottom:14px;
+  }
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none;}
+  h1{
+    font-size:clamp(28px,5vw,44px);
+    font-weight:700;
+    line-height:1.08;
+    margin:0 0 12px;
+    color:var(--ink);
+  }
+  .subhead{
+    font-size:17px;color:var(--ink-muted);max-width:60ch;margin:0 0 18px;
+  }
+  .meta-row{
+    display:flex;flex-wrap:wrap;gap:8px 22px;
+    font-size:13px;color:var(--ink-faint);
+    border-top:1px solid var(--line);
+    padding-top:14px;
+  }
+  .meta-row b{color:var(--ink-muted);font-weight:600;}
+
+  /* ---------- Stat tiles ---------- */
+  .stats{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:1px;
+    background:var(--line-strong);
+    border:1px solid var(--line-strong);
+    margin-block:28px;
+    box-shadow:var(--shadow);
+  }
+  .stat{
+    background:var(--surface);
+    padding:22px 18px;
+    display:flex;flex-direction:column;gap:6px;
+  }
+  .stat .num{
+    font-family:'Oswald',sans-serif;font-weight:700;
+    font-size:clamp(26px,4vw,34px);
+    color:var(--bad);
+    line-height:1;
+    font-variant-numeric:tabular-nums;
+  }
+  .stat.warn .num{color:var(--accent-ink);}
+  .stat .label{font-size:12.5px;color:var(--ink-muted);line-height:1.35;}
+  @media(max-width:680px){ .stats{grid-template-columns:1fr 1fr;} }
+
+  /* ---------- Section headers ---------- */
+  section{margin-block:52px;}
+  .sec-head{
+    display:flex;align-items:baseline;gap:12px;
+    border-bottom:2px solid var(--ink);
+    padding-bottom:10px;margin-bottom:22px;
+  }
+  .sec-num{
+    font-family:'Oswald',sans-serif;font-weight:700;font-size:14px;
+    color:var(--surface);background:var(--ink);
+    padding:3px 9px;border-radius:2px;letter-spacing:0.04em;
+  }
+  .sec-head h2{font-size:23px;margin:0;font-weight:600;}
+  .sec-intro{color:var(--ink-muted);font-size:15px;margin:-8px 0 22px;max-width:68ch;}
+
+  /* ---------- Stage dossier cards ---------- */
+  .stage{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-left:4px solid var(--line-strong);
+    box-shadow:var(--shadow);
+    margin-bottom:16px;
+  }
+  .stage.flag{border-left-color:var(--bad);}
+  .stage-head{
+    display:flex;align-items:center;gap:14px;
+    padding:16px 20px;
+    background:var(--surface-2);
+    border-bottom:1px solid var(--line);
+  }
+  .stage-index{
+    font-family:'Oswald',sans-serif;font-weight:700;font-size:20px;
+    color:var(--ink-faint);min-width:28px;
+  }
+  .stage-head h3{margin:0;font-size:17px;font-weight:600;line-height:1.3;}
+  .stage-form{
+    font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--ink-muted);
+    margin-top:3px;
+  }
+  .stage-body{padding:18px 20px 20px;}
+  .field{margin-bottom:14px;}
+  .field:last-child{margin-bottom:0;}
+  .field-label{
+    font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:0.1em;
+    font-size:11px;color:var(--ink-faint);margin-bottom:4px;
+  }
+  .field-value{font-size:14.5px;color:var(--ink);}
+  .field.gap .field-value{
+    background:var(--bad-soft);color:var(--bad);
+    border-left:3px solid var(--bad);
+    padding:9px 12px;font-size:14px;line-height:1.55;
+  }
+  .field-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;
+    padding-top:14px;margin-top:14px;border-top:1px dashed var(--line);
+  }
+  @media(max-width:600px){ .field-grid{grid-template-columns:1fr;} }
+  .pill{
+    display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;
+    padding:2px 8px;border-radius:3px;font-weight:500;
+  }
+  .pill.waste{background:var(--accent-soft);color:var(--accent-ink);}
+
+  /* ---------- ERP coverage table ---------- */
+  .erp-table{width:100%;border-collapse:collapse;font-size:14.5px;}
+  .erp-table th{
+    text-align:left;font-family:'Oswald',sans-serif;text-transform:uppercase;
+    letter-spacing:0.06em;font-size:12px;color:var(--ink-muted);
+    padding:8px 12px;border-bottom:2px solid var(--ink);
+  }
+  .erp-table td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  .erp-table tr:last-child td{border-bottom:none;}
+  .status-chip{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12.5px;font-weight:600;padding:3px 9px;border-radius:20px;
+    white-space:nowrap;
+  }
+  .status-chip.none{background:var(--bad-soft);color:var(--bad);}
+  .status-chip.partial{background:var(--accent-soft);color:var(--accent-ink);}
+  .table-scroll{overflow-x:auto;border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow);}
+  .table-scroll .erp-table{min-width:560px;}
+  .table-scroll .erp-table th:first-child, .table-scroll .erp-table td:first-child{padding-left:16px;}
+
+  /* ---------- Labor chart ---------- */
+  .chart-card{
+    background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);
+    padding:22px 22px 24px;
+  }
+  .bar-row{margin-bottom:20px;}
+  .bar-row:last-child{margin-bottom:0;}
+  .bar-label{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-size:13.5px;color:var(--ink-muted);margin-bottom:6px;
+  }
+  .bar-label b{color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:14px;}
+  .bar-track{
+    display:flex;height:26px;border-radius:3px;overflow:hidden;
+    background:var(--surface-3);border:1px solid var(--line);
+  }
+  .bar-seg{display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;}
+  .seg-a{background:#6B7C8C;}
+  .seg-b{background:#8A98A6;}
+  .seg-c{background:var(--accent);}
+  .seg-d{background:#A9B4BC;}
+  .seg-mult{background:repeating-linear-gradient(135deg, var(--bad), var(--bad) 8px, var(--bad-soft) 8px, var(--bad-soft) 16px);}
+  .legend{display:flex;flex-wrap:wrap;gap:14px 20px;margin-top:16px;font-size:12.5px;color:var(--ink-muted);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .legend i{width:11px;height:11px;border-radius:2px;display:inline-block;}
+
+  /* ---------- Conclusion ---------- */
+  .conclusion{
+    background:var(--ink);color:var(--bg);
+    padding:32px 28px;
+  }
+  .conclusion h2{color:var(--bg);border:none;padding:0;margin:0 0 18px;font-size:22px;}
+  .conclusion ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:14px;}
+  .conclusion li{font-size:15px;line-height:1.6;color:#D4DADE;}
+  .conclusion li b{color:var(--bg);}
+  .conclusion li .mono{color:#F0C878;}
+
+  footer{
+    margin-top:56px;padding-top:20px;border-top:1px solid var(--line);
+    font-size:12.5px;color:var(--ink-faint);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <div class="eyebrow"><span class="dot"></span>Báo cáo kiểm toán quy trình · AVP Solutions</div>
+    <h1>Từ Email PO Đến Xe Hàng Rời Kho: Nơi Hệ Thống Hiện Tại Đang Rò Rỉ</h1>
+    <p class="subhead">Đối chiếu trực tiếp 2 file Excel vận hành thật, 4 chứng từ giấy thật, và mã nguồn AVP_AI — không suy đoán, mọi con số đều chạy lại được.</p>
+    <div class="meta-row">
+      <span><b>Ngày:</b> 13/09/2026</span>
+      <span><b>Nguồn:</b> PACKING SLIPS.xlsm · DAILY LOG CHECK SHEET.xlsm</span>
+      <span><b>Đối chiếu:</b> Odoo 17 (live) · Ops_Ai</span>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="num">797<span style="font-size:16px;color:var(--ink-faint);">/1.847</span></div>
+      <div class="label">traveler bị lệch SHIPPED/PS giữa 2 bản "WORK ORDER" — cùng 1 sự thật, 2 câu trả lời khác nhau</div>
+    </div>
+    <div class="stat">
+      <div class="num">0<span style="font-size:16px;color:var(--ink-faint);">/30</span></div>
+      <div class="label">ngày mà báo cáo KPI (SUMMARY IN&amp;OUT) khớp với sổ cái thật — có ngày lệch tới 105 dòng</div>
+    </div>
+    <div class="stat warn">
+      <div class="num">21–28<span style="font-size:15px;color:var(--ink-faint);"> giờ/ngày</span></div>
+      <div class="label">ước tính lao động hành chính bị "mò số liệu" thay vì tạo giá trị thật</div>
+    </div>
+    <div class="stat warn">
+      <div class="num">7<span style="font-size:16px;color:var(--ink-faint);">/8</span></div>
+      <div class="label">nhóm nguồn lực chuẩn ERP hiện chưa được quản lý có hệ thống</div>
+    </div>
+  </div>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">01</span><h2>Toàn bộ đường đi của 1 lô hàng — 8 điểm dừng, 8 lỗ hổng</h2></div>
+    <p class="sec-intro">Mỗi thẻ dưới đây là 1 điểm dừng thật trong quy trình, từ lúc email PO tới lúc xe rời kho — kèm bằng chứng cụ thể lấy trực tiếp từ file, không phải suy đoán.</p>
+
+    <div class="stage flag">
+      <div class="stage-head">
+        <span class="stage-index">1</span>
+        <div><h3>Nhận PO email Infasco → lập Traveler / WORK ORDER</h3>
+        <div class="stage-form">Sheet "WORK ORDER" — 2 bản riêng biệt (1.847 dòng + 5.224 dòng)</div></div>
+      </div>
+      <div class="stage-body">
+        <div class="field"><div class="field-label">Mục đích</div><div class="field-value">Sổ cái gốc: Traveler ↔ Part# ↔ Pot# ↔ Weight ↔ Pieces ↔ PO ↔ Date ↔ Lot#</div></div>
+        <div class="field gap"><div class="field-label" style="color:var(--bad);">Lỗ hổng — bằng chứng thật</div><div class="field-value">100% gõ tay (0/1.853 dòng có công thức, cả 10 cột). Hai bản WORK ORDER lệch nhau thật: <b class="mono">797</b> traveler bị lệch SHIPPED/PS — vd traveler <span class="mono">704978</span>: file 1 nói PS <span class="mono">29979</span>, file 2 nói PS <span class="mono">30072</span>.</div></div>
+        <div class="field-grid">
+          <div class="field"><div class="field-label">Đang quản lý</div><div class="field-value">Vật liệu — chỉ số lượng cơ bản</div></div>
+          <div class="field"><div class="field-label">Cần bổ sung</div><div class="field-value">Bước Receiving Inspection độc lập (cân/đếm xác nhận riêng)</div></div>
+        </div>
+        <div class="field"><div class="field-label">Lãng phí</div><span class="pill waste">~2,2 giờ/ngày gõ tay</span></div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-head">
+        <span class="stage-index">2</span>
+        <div><h3>Sản xuất / QC lựa hàng → dán Split Form</h3>
+        <div class="stage-form">02_Work_Order_Quality_Check_Split_form.jpeg (giấy)</div></div>
+      </div>
+      <div class="stage-body">
+        <div class="field"><div class="field-label">Mục đích</div><div class="field-value">Ghi nhận FINAL INSPECTION, routing, số cartons/pcs thực tế</div></div>
+        <div class="field gap"><div class="field-label" style="color:var(--bad);">Lỗ hổng — bằng chứng thật</div><div class="field-value">Toàn bộ trên giấy, không số hóa. "DMF – Defective Material Form" được nhắc trong ghi chú (<span class="mono">SORT FOR DAMAGED LOCKING-DMF FORM</span>) nhưng không lưu trữ số hóa ở bất kỳ đâu trong 2 file.</div></div>
+        <div class="field-grid">
+          <div class="field"><div class="field-label">Đang quản lý</div><div class="field-value">Chất lượng — 1 phần, không lưu trữ</div></div>
+          <div class="field"><div class="field-label">Cần bổ sung</div><div class="field-value">Số hóa tại chỗ (tablet), lưu trữ DMF có cấu trúc</div></div>
+        </div>
+        <div class="field"><div class="field-label">Lãng phí</div><span class="pill waste">Không đo được — hoàn toàn thủ công</span></div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-head">
+        <span class="stage-index">3</span>
+        <div><h3>Thu gom Split Form + đối chiếu kho physical</h3>
+        <div class="stage-form">Đi lại thu thập giấy trên xưởng</div></div>
+      </div>
+      <div class="stage-body">
+        <div class="field"><div class="field-label">Mục đích</div><div class="field-value">Xác nhận số liệu trước khi đóng gói chính thức</div></div>
+        <div class="field gap"><div class="field-label" style="color:var(--bad);">Lỗ hổng — bằng chứng thật</div><div class="field-value">Không hệ thống nào track bước này — phụ thuộc hoàn toàn trí nhớ và kỷ luật cá nhân đi thu gom.</div></div>
+        <div class="field-grid">
+          <div class="field"><div class="field-label">Đang quản lý</div><div class="field-value">Nhân lực — không đo lường</div></div>
+          <div class="field"><div class="field-label">Cần bổ sung</div><div class="field-value">Quy trình số hóa tại nguồn, bỏ hẳn bước đi thu gom giấy</div></div>
+        </div>
+        <div class="field"><div class="field-label">Lãng phí</div><span class="pill waste">~0,5–0,75 giờ/ngày đi lại</span></div>
+      </div>
+    </div>
+
+    <div class="stage flag">
+      <div class="stage-head">
+        <span class="stage-index">4</span>
+        <div><h3>Gõ kết quả vào Scanning Sheet</h3>
+        <div class="stage-form">CHECKING SUMMARY — 1.811 dòng, tương ứng 03_Finish_Goods_Scanning.jpeg</div></div>
+      </div>
+      <div class="stage-body">
+        <div class="field"><div class="field-label">Mục đích</div><div class="field-value">Ghi nhận thành phẩm đã đóng gói: Boxes, TTL QNT, Reject, Skid...</div></div>
+        <div class="field gap"><div class="field-label" style="color:var(--bad);">Lỗ hổng — bằng chứng thật</div><div class="field-value">19/20 cột gõ tay 100%. Cột "Reject" ghi chuỗi số ngăn phẩy không đơn vị (thật: <span class="mono">"5, 154, 59, 3"</span>). Cột "DEFECTS" có tên hẳn hoi nhưng <b class="mono">0/1.811</b> dòng có dữ liệu. LOT NO. đôi khi bị ghi đè <span class="mono">"SORT&amp;RETURN"</span> thay vì lot thật.</div></div>
+        <div class="field-grid">
+          <div class="field"><div class="field-label">Đang quản lý</div><div class="field-value">Sản lượng — có; Chất lượng — có ý định, thất bại</div></div>
+          <div class="field"><div class="field-label">Cần bổ sung</div><div class="field-value">NCR có cấu trúc (mã lỗi tách riêng số lượng), field CHECKER</div></div>
+        </div>
+        <div class="field"><div class="field-label">Lãng phí</div><span class="pill waste">~3,3 giờ/ngày gõ tay</span></div>
+      </div>
+    </div>
+
+    <div class="stage flag">
+      <div class="stage-head">
+        <span class="stage-index">5</span>
+        <div><h3>Tạo Packing List → xuất hàng</h3>
+        <div class="stage-form">Sheet "PACKING SLIP" (Table1, 23 dòng/lần) → 04_Delivery_Order_packing_slip.jpeg</div></div>
+      </div>
+      <div class="stage-body">
+        <div class="field"><div class="field-label">Mục đích</div><div class="field-value">Tạo phiếu giao hàng chính thức cho Infasco</div></div>
+        <div class="field gap"><div class="field-label" style="color:var(--bad);">Lỗ hổng — bằng chứng thật</div><div class="field-value">SHIPPED/PS dùng công thức vòng lặp tự tham chiếu, phụ thuộc cài đặt "Iterative Calculation" — phải tô vàng + Paste-Values tay để khóa cứng. Traveler xuất lẻ 2 lần chỉ ghi được bằng sửa chữ tay thành <span class="mono">"29577/30018"</span> (chuỗi, không phải số).</div></div>
+        <div class="field-grid">
+          <div class="field"><div class="field-label">Đang quản lý</div><div class="field-value">Xuất hàng cơ bản (PO/Part/Traveler/Box/Qty qua VLOOKUP)</div></div>
+          <div class="field"><div class="field-label">Cần bổ sung</div><div class="field-value">Field "loại giao dịch"; theo dõi container tái sử dụng (POT rỗng, pallet)</div></div>
+        </div>
+        <div class="field"><div class="field-label">Lãng phí</div><span class="pill waste">~0,5 giờ/ngày gõ — nhưng rủi ro sai lệch PS cao nhất</span></div>
+      </div>
+    </div>
+
+    <div class="stage flag">
+      <div class="stage-head">
+        <span class="stage-index">6</span>
+        <div><h3>Lưu trữ lịch sử đã xuất</h3>
+        <div class="stage-form">ARCHIVE (1.578 dòng) + ARCHIVE2 "COPY TRAVELER SHIPPING ARCHIVE" (138 dòng, chữ tự do)</div></div>
+      </div>
+      <div class="stage-body">
+        <div class="field"><div class="field-label">Mục đích</div><div class="field-value">Lưu vết đã xuất PS nào, traveler nào, để tra cứu sau này</div></div>
+        <div class="field gap"><div class="field-label" style="color:var(--bad);">Lỗ hổng — bằng chứng thật</div><div class="field-value">100% gõ tay, không link WORK ORDER (0/1.579 và 0/138 dòng có công thức). Lệch PS: <b class="mono">25/1.468</b> traveler. Cột Part# không có tiêu đề. Trộn lẫn return/internal-move/sample chung 1 bảng (vd <span class="mono">"BIN TO BIN 1359-&gt;969"</span>). Cột BOXES có giá trị chữ <span class="mono">"BIN"</span>. ARCHIVE2 là 1 cột chữ tự do, máy không parse được.</div></div>
+        <div class="field-grid">
+          <div class="field"><div class="field-label">Đang quản lý</div><div class="field-value">Lưu trữ lịch sử — có, nhưng không đáng tin</div></div>
+          <div class="field"><div class="field-label">Cần bổ sung</div><div class="field-value">Field loại giao dịch bắt buộc chọn (chuẩn Odoo picking_type_id)</div></div>
+        </div>
+        <div class="field"><div class="field-label">Lãng phí</div><span class="pill waste">Nguồn phát sinh sai số PS nhiều nhất đã đo được</span></div>
+      </div>
+    </div>
+
+    <div class="stage flag">
+      <div class="stage-head">
+        <span class="stage-index">7</span>
+        <div><h3>Báo cáo KPI hàng ngày cho quản lý</h3>
+        <div class="stage-form">SUMMARY IN&amp;OUT</div></div>
+      </div>
+      <div class="stage-body">
+        <div class="field"><div class="field-label">Mục đích</div><div class="field-value">Trả lời nhanh "hôm nay nhận / xử lý / xuất bao nhiêu" cho quản lý</div></div>
+        <div class="field gap"><div class="field-label" style="color:var(--bad);">Lỗ hổng — bằng chứng thật</div><div class="field-value">Đếm tay hoàn toàn, không khớp WORK ORDER thật — kiểm 30 ngày mẫu, <b class="mono">0/30</b> ngày khớp gần đúng, có ngày lệch tới <b class="mono">105</b> dòng.</div></div>
+        <div class="field-grid">
+          <div class="field"><div class="field-label">Đang quản lý</div><div class="field-value">Số lượng thô (throughput) — nhưng SAI</div></div>
+          <div class="field"><div class="field-label">Cần bổ sung</div><div class="field-value">Tính tự động từ sổ cái thật, không đếm tay</div></div>
+        </div>
+        <div class="field"><div class="field-label">Lãng phí</div><span class="pill waste">Quản lý ra quyết định dựa trên số liệu sai mà không biết</span></div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-head">
+        <span class="stage-index">8</span>
+        <div><h3>Tính năng thiết kế rồi bỏ dở</h3>
+        <div class="stage-form">Status · Crosscheckk · Sheet1 / Sheet2</div></div>
+      </div>
+      <div class="stage-body">
+        <div class="field"><div class="field-label">Mục đích</div><div class="field-value">Từng có ý định làm trạng thái sản xuất chi tiết hơn + đối chiếu chéo</div></div>
+        <div class="field gap"><div class="field-label" style="color:var(--bad);">Lỗ hổng — bằng chứng thật</div><div class="field-value">"Status" định nghĩa 5 trạng thái (Loaded/Not started/Preloaded/Running/Shipped) nhưng chỉ xuất hiện 4 lần — trong chính sheet đó, chưa từng dùng thật. "Crosscheckk": 1 dòng dữ liệu, mọi ô ghi literal <span class="mono">"Please enter"</span>.</div></div>
+        <div class="field-grid">
+          <div class="field"><div class="field-label">Ý nghĩa</div><div class="field-value">Bằng chứng công ty đã nhiều lần cố nâng cấp nhưng không hoàn thành</div></div>
+          <div class="field"><div class="field-label">Rủi ro</div><div class="field-value">Lặp lại nếu không đổi cách làm (nhiều sheet rời thay vì 1 kiến trúc đúng)</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">02</span><h2>8 nhóm nguồn lực ERP — quản lý được bao nhiêu?</h2></div>
+    <p class="sec-intro">ERP đúng nghĩa quản lý toàn bộ nguồn lực doanh nghiệp. Đối chiếu từng nhóm với bằng chứng thật tìm thấy trong 2 file.</p>
+    <div class="table-scroll">
+      <table class="erp-table">
+        <thead><tr><th>Nguồn lực</th><th>Tình trạng</th><th>Bằng chứng</th></tr></thead>
+        <tbody>
+          <tr><td>Vật liệu (Material)</td><td><span class="status-chip partial">⚠ Một phần</span></td><td>Có, nhưng phân mảnh 2+ file không đồng bộ</td></tr>
+          <tr><td>Chất lượng (Quality)</td><td><span class="status-chip none">✕ Thất bại</span></td><td>Cột DEFECTS 0% dùng, Reject không cấu trúc</td></tr>
+          <tr><td>Máy móc / OEE</td><td><span class="status-chip none">✕ Không có</span></td><td>Không 1 cột nào ghi giờ chạy/dừng máy</td></tr>
+          <tr><td>Container / Tài sản (POT, pallet)</td><td><span class="status-chip none">✕ Không có</span></td><td>Không track vòng đời nhận → rỗng → trả</td></tr>
+          <tr><td>Nhân lực (HR/Labor)</td><td><span class="status-chip none">✕ Không có</span></td><td>Không file nào đo giờ công / năng suất</td></tr>
+          <tr><td>Tài chính (Costing)</td><td><span class="status-chip none">✕ Không có</span></td><td>Không có cột chi phí / giá vốn nào</td></tr>
+          <tr><td>Khách hàng (CRM)</td><td><span class="status-chip none">✕ Không có</span></td><td>Có hàng chục khách hàng thật (Jobal, Thompson Fasteners, Ultra Form...) nhưng không sheet nào quản lý</td></tr>
+          <tr><td>Báo cáo quản trị (BI)</td><td><span class="status-chip none">✕ Sai số liệu</span></td><td>SUMMARY IN&amp;OUT — 0/30 ngày khớp sổ cái thật</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">03</span><h2>Ước tính chi phí lao động hành chính</h2></div>
+    <p class="sec-intro">Dựa trên khối lượng thật (~78,5 traveler/ngày) và giả định tốc độ gõ 8–15 giây/ô — có ghi rõ giả định, chưa đo thời gian thật.</p>
+    <div class="chart-card">
+      <div class="bar-row">
+        <div class="bar-label"><span>Gõ tay thuần theo từng bước</span><b>~6,5–7,3 giờ/ngày</b></div>
+        <div class="bar-track">
+          <div class="bar-seg seg-a" style="width:31%">WORK ORDER 2,2h</div>
+          <div class="bar-seg seg-b" style="width:9%"></div>
+          <div class="bar-seg seg-c" style="width:47%">Scanning Sheet 3,3h</div>
+          <div class="bar-seg seg-d" style="width:7%"></div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label"><span>+ Hệ số "mò tìm số liệu" (2–3 lần, theo kinh nghiệm Andy)</span><b>~21–28 giờ/ngày</b></div>
+        <div class="bar-track">
+          <div class="bar-seg seg-c" style="width:26%">Gõ 7h</div>
+          <div class="bar-seg seg-mult" style="width:74%">Mò tìm ~14–21h</div>
+        </div>
+      </div>
+      <div class="legend">
+        <span><i style="background:#6B7C8C"></i>Lập WORK ORDER</span>
+        <span><i style="background:#8A98A6"></i>Thu gom Split Form</span>
+        <span><i style="background:var(--accent)"></i>Scanning Sheet</span>
+        <span><i style="background:#A9B4BC"></i>Packing List</span>
+        <span><i style="background:var(--bad)"></i>Mò tìm / đối chiếu file lệch nhau</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="conclusion">
+    <h2>Kết luận</h2>
+    <ol>
+      <li><b>Không phải "làm chưa tới" mà là "nhiều nơi tự làm, không ai đồng bộ."</b> Bằng chứng rõ nhất: 2 bản WORK ORDER lệch nhau ở <span class="mono">797</span> traveler thật, SUMMARY IN&amp;OUT sai 100% (0/30 ngày khớp) — lỗi đã xảy ra thật, đang được dùng để ra quyết định mỗi ngày.</li>
+      <li><b>Công ty đã nhiều lần cố nâng cấp nhưng bỏ dở</b> (Status, Crosscheckk) — không phải vì không nhận ra vấn đề, mà vì thiếu 1 kiến trúc đúng để hoàn thành trọn vẹn.</li>
+      <li><b>7/8 nguồn lực ERP chuẩn chưa được quản lý</b> — quy mô thật (hàng chục khách hàng, hàng nghìn traveler/năm) đã tương đương 1 doanh nghiệp cần ERP thật sự.</li>
+      <li><b>Chi phí cơ hội ước tính <span class="mono">~5.000–7.000</span> giờ/năm</b> lãng phí vào gõ + mò số liệu — có thể chuyển thành thời gian xử lý ngoại lệ, chăm sóc khách hàng, cải tiến sản xuất.</li>
+      <li><b>AVP_AI đã giải quyết 1 phần đáng kể</b> các lỗi cụ thể ở trên — để giải quyết toàn diện (7/8 nguồn lực còn thiếu), cần đầu tư thêm theo lộ trình đã đề xuất.</li>
+    </ol>
+  </section>
+
+  <footer>
+    Tổng hợp từ nghiên cứu trực tiếp trong phiên làm việc 12–13/09/2026. Chi tiết kỹ thuật đầy đủ: <span class="mono">BRS_TRS.md</span> (mục 6a–6e), <span class="mono">ARCHITECTURE.md</span> (mục 8). Mọi số liệu đối chiếu đều chạy trực tiếp trên file Excel thật, có thể tái kiểm chứng lại bất cứ lúc nào.
+  </footer>
+
+</div>
+</body>
+</html>

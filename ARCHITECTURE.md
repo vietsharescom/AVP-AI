@@ -237,6 +237,126 @@ traveler đó). Đây là chủ ý hay cần chặn cứng — chưa hỏi lại
 
 ---
 
-*Viết/cập nhật 2026-09-12, dựa trên code thật (`webapp/src/app/api/`,
-`webapp/src/lib/sheets.ts`) + 4 form giấy thật trong `Data/` + `BRS_TRS.md`.
-Cập nhật lại file này mỗi khi kiến trúc đổi — đây là tài liệu sống.*
+## 8. Định hướng kiến trúc hiện đại (nghiên cứu thật 2026-09-13)
+
+Andy yêu cầu đối chiếu thiết kế AVP Packing Flow với chuẩn ERP/kho vận hiện
+đại — đã nghiên cứu bằng 3 nguồn thật (không suy đoán): tài liệu kiến trúc dự
+án `D:\xekem` (KhoAI — hệ thống kho AI cho SME thực phẩm gốc Việt), Odoo 17
+thật đang chạy (`docker`, DB `xekem`, truy vấn trực tiếp qua XML-RPC), và mô
+hình quản trị AI 4 lớp trong `D:\Ops_Ai` (ISO/IEC 42001).
+
+### 8.1 "Kho hiện đại chỉ khác nhau ký hiệu" — xác nhận đúng bằng cấu trúc Odoo thật
+
+Truy vấn trực tiếp Odoo (`stock.location`, `stock.quant`, `stock.move`,
+`stock.lot`, `stock.picking`) xác nhận đúng trực giác của Andy:
+
+| Khái niệm cũ (kho vật lý riêng) | Odoo hiện đại (1 hệ thống, khác NHÃN) |
+|---|---|
+| "Kho nguyên liệu" và "Kho thành phẩm" là 2 nơi/2 sổ sách riêng | Chỉ là 2 **`stock.location`** khác nhau trong CÙNG 1 cây vị trí (vd `WH/Raw Materials`, `WH/Finished Goods`) — đổi nhãn `usage` (internal/customer/supplier/transit), không phải 2 hệ thống |
+| Tồn kho = đi đếm tay từng kho | **`stock.quant`** — 1 bảng DUY NHẤT (product, location, lot) → quantity, luôn đúng ngay lập tức, tính từ sổ cái |
+| Nhập/xuất kho = nghiệp vụ riêng biệt mỗi loại | **`stock.move`** — 1 sổ cái BẤT BIẾN duy nhất ghi mọi lần di chuyển giữa 2 location (nhận NVL, tiêu thụ sản xuất, xuất hàng đều là 1 "move") |
+| Truy vết lô hàng = tra nhiều bảng | **`stock.lot`** — 1 lô, xem được toàn bộ lịch sử từ nguyên liệu → thành phẩm → khách hàng |
+| "Packing Slip" là tài liệu riêng của AVP | Chính là **`stock.picking`** chuẩn Odoo — 1 "transfer" từ location nội bộ AVP → location khách hàng (Infasco), gộp nhiều `stock.move` |
+
+**Áp vào AVP Packing Flow**: `RawMaterial`, `FinishGood`, `PackingList` hiện
+là 3 SHEET/BẢNG tách biệt (đúng mô hình "kho cũ"). Theo chuẩn hiện đại, cả 3
+nên là **1 sổ cái duy nhất** (Traveler/Pot#/Lot# + trạng thái: forecast →
+received → packed → shipped), khác nhau chỉ ở giá trị 1 cột `stage`/`state`,
+không phải 3 bảng riêng — đúng tinh thần "chỉ khác ký hiệu" Andy nói. Đây là
+thay đổi CẤU TRÚC DỮ LIỆU lớn, cần Andy quyết định có làm không (rủi ro: phải
+viết lại toàn bộ API + kiểm tra lại mọi cảnh báo đã có).
+
+### 8.2 Tương tác hiện đại: email/giọng nói/ảnh, biết ngay trên điện thoại
+
+Từ tài liệu KhoAI (`D:\xekem\KhoaiTechnicalArchitect.MD`) — hệ thống thật đã
+thiết kế cho đúng nhu cầu Andy mô tả ("nói vào micro để biết tồn gì, cần xuất
+gì, có đủ NVL cho công nhân hôm nay không — ngay trên điện thoại"):
+
+- 3 kênh nhập liệu chính: **chụp ảnh hóa đơn** (AI đọc), **giọng nói**
+  (Whisper chuyển giọng nói → Claude hiểu ý định → cập nhật kho), **chụp ảnh
+  hàng loạt để đếm** (AI đếm, server gộp nhiều vị trí lại tự động).
+- Tất cả xử lý AI nằm ở **backend** (điện thoại chỉ chụp/nói, không xử lý AI
+  tại chỗ) — để cập nhật model dễ, không lộ API key, máy yếu vẫn dùng được.
+- Có **hàng chờ duyệt** (Review Queue) riêng cho supervisor — đúng tinh thần
+  "confirm trước khi ghi Sheet" AVP Packing Flow đã làm ở cả 4 khâu.
+
+**AVP hiện đã có** phần lõi "chụp ảnh → AI đọc → người duyệt → lưu" (khâu 1
+và 3). **Chưa có**: kênh giọng nói (hỏi tồn kho bằng lời), và 1 nơi duy nhất
+trả lời "hôm nay có đủ NVL không" (hiện phải tự suy ra từ bảng Reconciliation
+ở khâu 2, chưa có câu trả lời trực tiếp dạng hỏi-đáp).
+
+### 8.3 "CCP — Critical Control Point": mô hình đã có, cần đặt tên chính thức
+
+`Ops_Ai/docs/cl08_operation/SOFTWARE_ARCHITECTURE.md` định nghĩa mô hình
+quản trị AI 4 lớp (tương đương HACCP CCP áp cho phần mềm):
+
+```
+LỚP 1 — AI SINH RA (OCR/Vision/giọng nói) — AI chỉ chạy ở đây
+LỚP 2 — KIỂM TRA TỰ ĐỘNG (rule engine, không LLM) — mọi cảnh báo/công thức
+LỚP 3 — QUẢN TRỊ RỦI RO (truy vết lô, phân quyền)
+LỚP 4 — CON NGƯỜI + KIỂM TOÁN — CCP: điểm BẮT BUỘC người duyệt
+```
+
+**Đối chiếu AVP Packing Flow hiện tại — mọi CCP đã có, nhưng chưa gọi tên**:
+
+| CCP | Ở đâu trong AVP | Mức rủi ro |
+|---|---|---|
+| CCP-1 | Mọi kết quả AI đọc (khâu 1, 3) đều dừng ở màn hình xem lại, KHÔNG tự ghi Sheet | Cao — đã có |
+| CCP-2 | Cảnh báo Pot#/LOT#/Part# lệch (finish-good/confirm) — người phải xem trước khi lưu | Cao — đã có |
+| CCP-3 | QC HOLD chặn cứng không cho duyệt Packing List | Nghiêm trọng — đã có (chặn cứng, không chỉ cảnh báo) |
+| CCP-4 (mới, đề xuất) | Số Packing Slip — vẫn cần người gõ tay vì nguồn số nằm ngoài AVP (mục "PS" ở trên) | Nghiêm trọng — đã có (không tự sinh số) |
+
+**Đề xuất**: đặt tên chính thức "CCP-1..4" ngay trong code/comment (giống
+Ops_Ai đã làm), để mỗi khi thêm tính năng AI mới, tự hỏi "cái này có phải
+CCP không, đã có người duyệt chưa" — thay vì phải nhớ rải rác qua nhiều file.
+
+### 8.4 Tóm tắt khuyến nghị (chưa làm gì, chờ Andy quyết định độ ưu tiên)
+
+1. **Nhỏ, an toàn**: đặt tên "CCP-1..4" vào comment code hiện có (không đổi
+   hành vi, chỉ đặt tên) — làm ngay được nếu Andy đồng ý.
+2. **Vừa**: thêm 1 endpoint "hỏi-đáp tồn kho" (vd `/api/status` trả lời "còn
+   bao nhiêu Part# X chưa Shipped, có traveler nào đang HOLD") — nền tảng
+   cho voice sau này, chưa cần giọng nói thật.
+3. **Lớn, rủi ro cao**: gộp RawMaterial/FinishGood/PackingList thành 1 sổ
+   cái duy nhất kiểu `stock.move` — thay đổi cấu trúc dữ liệu nền tảng, nên
+   làm sau cùng và chỉ khi Andy chắc chắn cần.
+
+### 8.5 Tầm nhìn MES đầy đủ (Andy đặt ra 2026-09-13) — dashboard, yield/scrap, OEE, delivery-date
+
+Andy mô tả tầm nhìn 1 hệ thống MES (Manufacturing Execution System) đầy đủ:
+quản lý quyết định ngay, biết chính xác tồn kho/trạng thái mọi loại (NVL,
+bán thành phẩm, hư hỏng/HOLD, POT rỗng, pallet), phế liệu/tỷ lệ hao hụt,
+hiệu suất máy, và biết chính xác ngày giao hàng không cần chờ hỏi. Đối
+chiếu từng phần với chuẩn ngành + hiện trạng:
+
+| Tầm nhìn | Tên chuẩn ngành | Hiện trạng | Độ khó |
+|---|---|---|---|
+| Dashboard tổng quan tức thời | Real-time dashboard | ❌ Chưa có, phải mở từng trang | Dễ — dữ liệu đã có |
+| Yield/tỷ lệ hao hụt theo lô | First Pass Yield / Scrap rate | ❌ Chưa có, nhưng TÍNH ĐƯỢC ngay (Pieces nhận − Qty tốt đã đóng gói) | Dễ-vừa — chỉ cần công thức, không cần thu thập dữ liệu mới |
+| Vòng đời container (POT/pallet) | Container/Asset tracking | ❌ Chưa có (xem mục 6b BRS_TRS.md) | Vừa |
+| Ngày giao hàng chính xác | Available-to-Promise / Delivery-date feasibility (đúng tên Andy dùng ở Ops_Ai) | ❌ Chưa có, nhưng ước tính được bằng FIFO: (số traveler đang chờ trước) ÷ (tốc độ xử lý TB đo được, ~78,5/ngày) — **cần Andy xác nhận có đúng xử lý theo FIFO không** trước khi code | Vừa — dữ liệu có sẵn, cần xác nhận quy tắc ưu tiên |
+| Hiệu suất máy (OEE) | Overall Equipment Effectiveness | ❌ Chưa có — **chưa từng có ở cả Excel cũ**, cần THU THẬP DỮ LIỆU MỚI (giờ máy chạy/dừng), không chỉ code thêm | Khó nhất — đổi cả cách ghi nhận lúc sản xuất |
+
+**Phát hiện củng cố mạnh nhất cho hướng "1 sổ cái duy nhất" (mục 8.1)**:
+2 file Excel thật (`PACKING SLIPS.xlsm` và `DAILY LOG CHECK SHEET.xlsm`)
+mỗi file tự giữ 1 bảng "WORK ORDER" riêng (1.847 vs 5.224 dòng) — trong số
+travelers có ở cả 2 bên, **797 traveler bị lệch SHIPPED/PS thật** (xem
+BRS_TRS.md mục 6e) — không phải rủi ro lý thuyết, là lỗi ĐÃ XẢY RA vì có
+nhiều "nguồn sự thật" song song cho cùng 1 khái niệm.
+
+**Ước tính lợi ích lao động** (xem BRS_TRS.md mục 6c/6d): ~21-28 giờ lao
+động hành chính/ngày hiện tại (ước tính, cần đo thật để xác nhận) — phần
+lớn là "mò tìm số liệu" giữa nhiều sổ sách lệch nhau, không phải giá trị
+sản xuất thật. Đây là phần AI+cấu trúc dữ liệu tốt cắt giảm được nhiều nhất.
+
+**Giới hạn thành thật**: tự động hóa giảm mạnh phần "gõ + mò số liệu",
+nhưng KHÔNG loại bỏ hoàn toàn nhu cầu con người — CCP (mục 8.3) đòi hỏi
+người có chuyên môn thật sự đối chiếu, không phải "bấm Enter" vô tri; đếm
+vật lý (pallet, POT) và xử lý ngoại lệ nghiệp vụ vẫn cần người.
+
+---
+
+*Viết/cập nhật 2026-09-13, dựa trên code thật (`webapp/src/app/api/`,
+`webapp/src/lib/sheets.ts`) + 4 form giấy thật trong `Data/` + `BRS_TRS.md` +
+nghiên cứu Odoo/KhoAI/Ops_Ai thật (mục 8). Cập nhật lại file này mỗi khi kiến
+trúc đổi — đây là tài liệu sống.*

@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Thiết Kế Hệ Thống AVP Mới</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EEF1F1; --surface:#FFFFFF; --surface-2:#E2E8E8; --surface-3:#D7DEDD;
+    --ink:#16212B; --ink-muted:#54626C; --ink-faint:#7C8890;
+    --line:#CAD3D3; --line-strong:#AAB6B6;
+    --accent:#2C6E8C; --accent-ink:#154256; --accent-soft:#D8E7EE;
+    --good:#1D7A4C; --good-soft:#DCEFE3;
+    --bad:#AE3B2E; --bad-soft:#F6DFDA;
+    --warn:#B5680A; --warn-soft:#F3E3CB;
+    --shadow: 0 1px 2px rgba(22,33,43,0.06), 0 6px 16px rgba(22,33,43,0.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#10151B; --surface:#161D25; --surface-2:#1E2731; --surface-3:#28323D;
+      --ink:#E7EBEC; --ink-muted:#9AA7B0; --ink-faint:#71808A;
+      --line:#2C3742; --line-strong:#3C4A56;
+      --accent:#6FB4D6; --accent-ink:#DCEEF6; --accent-soft:#1C3644;
+      --good:#4FBE84; --good-soft:#173424;
+      --bad:#E2695A; --bad-soft:#3B1F1B;
+      --warn:#E0A030; --warn-soft:#3A2C13;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 20px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#10151B; --surface:#161D25; --surface-2:#1E2731; --surface-3:#28323D;
+    --ink:#E7EBEC; --ink-muted:#9AA7B0; --ink-faint:#71808A;
+    --line:#2C3742; --line-strong:#3C4A56;
+    --accent:#6FB4D6; --accent-ink:#DCEEF6; --accent-soft:#1C3644;
+    --good:#4FBE84; --good-soft:#173424;
+    --bad:#E2695A; --bad-soft:#3B1F1B;
+    --warn:#E0A030; --warn-soft:#3A2C13;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 20px rgba(0,0,0,0.35);
+  }
+  *{box-sizing:border-box;}
+  body{background:var(--bg);color:var(--ink);font-family:'Be Vietnam Pro','Segoe UI',sans-serif;font-size:16px;line-height:1.6;padding-inline:20px;padding-block:0 64px;}
+  .wrap{max-width:960px;margin-inline:auto;}
+  h1,h2,h3{font-family:'Oswald','Arial Narrow',sans-serif;text-wrap:balance;letter-spacing:0.01em;}
+  .mono{font-family:'JetBrains Mono','Consolas',monospace;font-variant-numeric:tabular-nums;}
+
+  .masthead{padding-block:40px 26px;border-bottom:3px solid var(--ink);}
+  .eyebrow{display:flex;align-items:center;gap:10px;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:0.16em;font-size:12.5px;color:var(--ink-muted);margin-bottom:14px;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none;}
+  h1{font-size:clamp(26px,4.6vw,40px);font-weight:700;line-height:1.1;margin:0 0 12px;}
+  .subhead{font-size:16.5px;color:var(--ink-muted);max-width:66ch;margin:0 0 18px;}
+  .meta-row{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:13px;color:var(--ink-faint);border-top:1px solid var(--line);padding-top:14px;}
+  .meta-row b{color:var(--ink-muted);font-weight:600;}
+
+  section{margin-block:52px;}
+  .sec-head{display:flex;align-items:baseline;gap:12px;border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:20px;}
+  .sec-num{font-family:'Oswald',sans-serif;font-weight:700;font-size:14px;color:var(--surface);background:var(--ink);padding:3px 9px;border-radius:2px;}
+  .sec-head h2{font-size:22px;margin:0;font-weight:600;}
+  .sec-intro{color:var(--ink-muted);font-size:15px;margin:-6px 0 22px;max-width:70ch;}
+
+  /* stage cards */
+  .stage{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);box-shadow:var(--shadow);margin-bottom:14px;}
+  .stage-head{display:flex;align-items:center;gap:14px;padding:14px 20px;background:var(--surface-2);border-bottom:1px solid var(--line);}
+  .stage-index{font-family:'Oswald',sans-serif;font-weight:700;font-size:19px;color:var(--ink-faint);min-width:26px;}
+  .stage-head h3{margin:0;font-size:16.5px;font-weight:600;}
+  .stage-body{padding:16px 20px 18px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px 20px;}
+  @media(max-width:720px){.stage-body{grid-template-columns:1fr 1fr;}}
+  @media(max-width:520px){.stage-body{grid-template-columns:1fr;}}
+  .f-label{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:0.09em;font-size:10.5px;color:var(--ink-faint);margin-bottom:4px;}
+  .f-value{font-size:13.5px;color:var(--ink);line-height:1.5;}
+  .tech-tag{display:inline-block;background:var(--accent-soft);color:var(--accent-ink);font-size:12px;padding:2px 8px;border-radius:3px;margin-right:4px;margin-bottom:3px;}
+  .ccp-tag{display:inline-block;background:var(--warn-soft);color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:3px;}
+  .full-span{grid-column:1/-1;}
+
+  /* comparison table */
+  .cmp-table{width:100%;border-collapse:collapse;font-size:14px;}
+  .cmp-table th{text-align:left;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:0.06em;font-size:11.5px;color:var(--ink-muted);padding:9px 14px;border-bottom:2px solid var(--ink);}
+  .cmp-table td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top;}
+  .cmp-table tr:last-child td{border-bottom:none;}
+  .cmp-table td.old{color:var(--bad);background:var(--bad-soft);}
+  .cmp-table td.new{color:var(--good);background:var(--good-soft);}
+  .cmp-table td.crit{font-weight:600;color:var(--ink);width:22%;}
+  .table-scroll{overflow-x:auto;border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow);}
+  .table-scroll .cmp-table{min-width:640px;}
+
+  /* architecture */
+  .arch-card{background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);padding:22px;overflow-x:auto;}
+  .layer{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1.5px solid var(--line-strong);margin-bottom:0;background:var(--surface-2);}
+  .layer + .layer{border-top:none;}
+  .layer:first-child{border-radius:4px 4px 0 0;}
+  .layer:last-child{border-radius:0 0 4px 4px;}
+  .layer-num{font-family:'Oswald',sans-serif;font-weight:700;font-size:13px;color:var(--surface);background:var(--ink);padding:2px 8px;border-radius:2px;flex:none;min-width:58px;text-align:center;}
+  .layer-body h4{margin:0 0 3px;font-size:14.5px;font-family:'Be Vietnam Pro';font-weight:600;}
+  .layer-body p{margin:0;font-size:12.5px;color:var(--ink-muted);line-height:1.5;}
+  .layer.core{border-color:var(--accent);}
+  .layer.core .layer-num{background:var(--accent-ink);}
+  .layer.ccp{border-color:var(--warn);}
+  .layer.ccp .layer-num{background:var(--warn);color:#2b1c00;}
+  .arrow-down{text-align:center;color:var(--ink-faint);font-size:13px;padding:2px 0;}
+
+  .pipe-flow{display:flex;flex-direction:column;gap:0;font-size:13px;}
+  .pipe-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0;}
+  .pipe-node{background:var(--surface-2);border:1px solid var(--line-strong);padding:7px 12px;border-radius:4px;font-size:12.5px;white-space:nowrap;}
+  .pipe-node.ccp{background:var(--warn-soft);color:var(--warn);border-color:var(--warn);font-family:'JetBrains Mono',monospace;font-weight:600;}
+  .pipe-node.ledger{background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent);font-weight:600;}
+  .pipe-sep{color:var(--ink-faint);}
+
+  .ref-list{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:600px){.ref-list{grid-template-columns:1fr;}}
+  .ref-item{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);padding:14px 16px;box-shadow:var(--shadow);}
+  .ref-item h4{margin:0 0 6px;font-size:14px;}
+  .ref-item p{margin:0;font-size:13px;color:var(--ink-muted);line-height:1.55;}
+
+  footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-faint);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <div class="eyebrow"><span class="dot"></span>Thiết kế đề xuất · Tiếp theo báo cáo kiểm toán quy trình AVP</div>
+    <h1>Từ Sổ Sách Rời Rạc Đến 1 Sổ Cái: Thiết Kế Hệ Thống Mới Cho AVP</h1>
+    <p class="subhead">Input/Output từng công đoạn, so sánh trực tiếp với hiện trạng, và kiến trúc phân lớp — đối chiếu Odoo 17 thật và mô hình quản trị Ops_Ai.</p>
+    <div class="meta-row">
+      <span><b>Ngày:</b> 13/09/2026</span>
+      <span><b>Tham khảo:</b> Odoo 17 (stock.move/quant/lot, live)</span>
+      <span><b>Tham khảo:</b> Ops_Ai (ISO 9001 Cl.8.7, mô hình CCP 4 lớp)</span>
+      <span><b>Tham khảo:</b> KhoAI (voice/camera capture)</span>
+    </div>
+  </div>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">01</span><h2>Input → Output từng công đoạn trong thiết kế mới</h2></div>
+    <p class="sec-intro">Giữ nguyên nghiệp vụ AVP đang làm — chỉ đổi cách thu thập (giọng nói/camera thay gõ tay) và cách lưu trữ (1 sổ cái thay nhiều sheet rời). Mỗi công đoạn đều có điểm CCP — không có bước nào tự động 100% bỏ qua con người.</p>
+
+    <div class="stage">
+      <div class="stage-head"><span class="stage-index">1</span><h3>Nhận PO</h3></div>
+      <div class="stage-body">
+        <div><div class="f-label">Đầu vào</div><div class="f-value">Email PDF/ảnh từ Infasco</div></div>
+        <div><div class="f-label">Công nghệ</div><div class="f-value"><span class="tech-tag">📄 Đọc file tự động</span></div></div>
+        <div><div class="f-label">Đầu ra lưu trữ</div><div class="f-value">1 dòng Ledger, <span class="mono">stage=FORECAST</span></div></div>
+        <div><div class="f-label">Xử lý (Core)</div><div class="f-value">Đối chiếu PO trùng, tách Traveler/Part#/Pot#/Weight/Pieces, validate PartControl</div></div>
+        <div><div class="f-label">Báo cáo</div><div class="f-value">Dashboard "PO mới hôm nay"</div></div>
+        <div><div class="f-label">Điểm CCP</div><div class="f-value"><span class="ccp-tag">CCP-1</span> xem lại trước khi ghi</div></div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-head"><span class="stage-index">2</span><h3>Nhận kho vật lý</h3></div>
+      <div class="stage-body">
+        <div><div class="f-label">Đầu vào</div><div class="f-value">Cân/đếm thật tại bến nhận</div></div>
+        <div><div class="f-label">Công nghệ</div><div class="f-value"><span class="tech-tag">📷 Camera</span><span class="tech-tag">⌨️ Xác nhận tay</span></div></div>
+        <div><div class="f-label">Đầu ra lưu trữ</div><div class="f-value"><span class="mono">stage=RECEIVED</span> + qc_status</div></div>
+        <div class="full-span"><div class="f-label">Xử lý (Core)</div><div class="f-value">So sánh forecast vs thực nhận; lệch &gt;5% → <span class="mono">RECEIVING_VARIANCE</span>; gán <span class="mono">QUALITY_HOLD</span> chờ kiểm (mặc định KHÔNG bắt buộc nếu Part# không cần — ISO 9001 8.7)</div></div>
+        <div><div class="f-label">Phân tích</div><div class="f-value">% lệch forecast/thực nhận theo Part#</div></div>
+        <div><div class="f-label">Điểm CCP</div><div class="f-value"><span class="ccp-tag">CCP-2</span> xác nhận nhận kho</div></div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-head"><span class="stage-index">3</span><h3>QC lựa hàng / Split Form</h3></div>
+      <div class="stage-body">
+        <div><div class="f-label">Đầu vào</div><div class="f-value">Giấy Split Form + lời QC ghi nhận</div></div>
+        <div><div class="f-label">Công nghệ</div><div class="f-value"><span class="tech-tag">🎙️ Voice (tay bẩn)</span><span class="tech-tag">📷 Camera+Vision</span></div></div>
+        <div><div class="f-label">Đầu ra lưu trữ</div><div class="f-value"><span class="mono">stage=IN_PROCESS</span> + qc_status + dmf_id</div></div>
+        <div class="full-span"><div class="f-label">Xử lý (Core)</div><div class="f-value">Trích FINAL INSPECTION → <span class="mono">PASS / QUALITY_HOLD / CONCESSION</span> (ISO 9001 Cl.8.7) — CONCESSION bắt buộc chữ ký người có thẩm quyền độc lập</div></div>
+        <div><div class="f-label">Phân tích</div><div class="f-value">Tỷ lệ HOLD theo Part#/máy/ca</div></div>
+        <div><div class="f-label">Báo cáo</div><div class="f-value">Heat-map lỗi theo máy × ca</div></div>
+        <div class="full-span"><div class="f-label">Điểm CCP</div><div class="f-value"><span class="ccp-tag">CCP-3</span> QC ký xác nhận PASS/HOLD/CONCESSION</div></div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-head"><span class="stage-index">4</span><h3>Đóng gói / Scan thành phẩm</h3></div>
+      <div class="stage-body">
+        <div><div class="f-label">Đầu vào</div><div class="f-value">Tem/nhãn thùng đã đóng</div></div>
+        <div><div class="f-label">Công nghệ</div><div class="f-value"><span class="tech-tag">📷 Camera+Vision</span><span class="tech-tag">⌨️ Tablet bàn đóng gói</span></div></div>
+        <div><div class="f-label">Đầu ra lưu trữ</div><div class="f-value"><span class="mono">stage=PACKED</span> + yield_pct + reject[] có cấu trúc</div></div>
+        <div class="full-span"><div class="f-label">Xử lý (Core)</div><div class="f-value">Tính <b>Yield/hao hụt</b> = Pieces nhận − Qty đóng gói tốt; validate (Traveler,Pot#,Lot#) 1:1 (đã đo 100% thật); reject tách mã lỗi + số lượng riêng</div></div>
+        <div><div class="f-label">Phân tích</div><div class="f-value">Yield rate theo lô/Part#/máy</div></div>
+        <div><div class="f-label">Báo cáo</div><div class="f-value">Biểu đồ Yield theo ngày, theo Part#</div></div>
+        <div><div class="f-label">Điểm CCP</div><div class="f-value"><span class="ccp-tag">CCP-1</span> xem AI đọc trước lưu</div></div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-head"><span class="stage-index">5</span><h3>Tạo Packing List / xuất hàng</h3></div>
+      <div class="stage-body">
+        <div><div class="f-label">Đầu vào</div><div class="f-value">Tìm kiếm theo Traveler# (đã có ở AVP_AI)</div></div>
+        <div><div class="f-label">Công nghệ</div><div class="f-value"><span class="tech-tag">⌨️ Search-to-add</span><span class="tech-tag">🔖 Quét mã (tùy chọn)</span></div></div>
+        <div><div class="f-label">Đầu ra lưu trữ</div><div class="f-value"><span class="mono">stage=SHIPPED</span> + 1 bản ghi chuyển động (giống stock.move)</div></div>
+        <div class="full-span"><div class="f-label">Xử lý (Core)</div><div class="f-value">Build phiếu; <b>chặn cứng nếu còn HOLD/CONCESSION</b> chưa xử lý; tính POT rỗng cần trả từ Ledger</div></div>
+        <div><div class="f-label">Phân tích</div><div class="f-value">Tỷ lệ giao đúng hẹn (on-time delivery)</div></div>
+        <div class="full-span"><div class="f-label">Điểm CCP</div><div class="f-value"><span class="ccp-tag">CCP-3</span> chặn cứng HOLD &nbsp; <span class="ccp-tag">CCP-4</span> số PS gõ tay (nguồn ngoài AVP)</div></div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-head"><span class="stage-index">6</span><h3>Theo dõi container (POT / Pallet)</h3></div>
+      <div class="stage-body">
+        <div><div class="f-label">Đầu vào</div><div class="f-value">Quét mã POT lúc nhận và lúc trả</div></div>
+        <div><div class="f-label">Công nghệ</div><div class="f-value"><span class="tech-tag">📷 Camera/mã vạch</span></div></div>
+        <div><div class="f-label">Đầu ra lưu trữ</div><div class="f-value">Asset Ledger riêng (khóa theo Pot#)</div></div>
+        <div><div class="f-label">Xử lý (Core)</div><div class="f-value">Vòng đời nhận→rỗng→đã trả; cảnh báo tồn đọng lâu</div></div>
+        <div><div class="f-label">Phân tích</div><div class="f-value">Tồn kho POT rỗng theo thời gian</div></div>
+        <div><div class="f-label">Điểm CCP</div><div class="f-value">Không cần — chỉ đếm vật lý có ghi nhận</div></div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-head"><span class="stage-index">7</span><h3>Hỏi-đáp tồn kho tức thời</h3></div>
+      <div class="stage-body">
+        <div><div class="f-label">Đầu vào</div><div class="f-value">"Còn bao nhiêu Part X chưa xuất?"</div></div>
+        <div><div class="f-label">Công nghệ</div><div class="f-value"><span class="tech-tag">🎙️ Voice</span><span class="tech-tag">💬 LLM hiểu ý định</span></div></div>
+        <div><div class="f-label">Đầu ra</div><div class="f-value">Chỉ đọc — không ghi gì mới</div></div>
+        <div class="full-span"><div class="f-label">Xử lý (Core)</div><div class="f-value">Truy vấn Ledger đã có — <b>LLM không được tự bịa số</b> (nguyên tắc tuyệt đối, giống Ops_Ai)</div></div>
+        <div><div class="f-label">Báo cáo</div><div class="f-value">Trả lời trực tiếp bằng giọng nói/màn hình</div></div>
+        <div><div class="f-label">Điểm CCP</div><div class="f-value"><span class="ccp-tag">CCP-1</span> LLM chỉ diễn giải câu hỏi</div></div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-head"><span class="stage-index">8</span><h3>Dashboard quản lý tổng hợp</h3></div>
+      <div class="stage-body">
+        <div><div class="f-label">Đầu vào</div><div class="f-value">Toàn bộ Ledger + Asset Ledger</div></div>
+        <div><div class="f-label">Công nghệ</div><div class="f-value"><span class="tech-tag">📊 BI/Visualization</span></div></div>
+        <div><div class="f-label">Đầu ra</div><div class="f-value">Chỉ đọc, tổng hợp</div></div>
+        <div class="full-span"><div class="f-label">Xử lý (Core)</div><div class="f-value">Tổng hợp KPI: Yield trung bình, % HOLD, tình trạng máy, ETA giao hàng (Available-to-Promise)</div></div>
+        <div><div class="f-label">Phân tích</div><div class="f-value">Xu hướng theo tuần/tháng, so sánh Part#/khách hàng</div></div>
+        <div><div class="f-label">Điểm CCP</div><div class="f-value">Không cần — chỉ hiển thị</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">02</span><h2>So sánh: hiện tại vs thiết kế mới</h2></div>
+    <div class="table-scroll">
+      <table class="cmp-table">
+        <thead><tr><th>Tiêu chí</th><th>Hiện tại — bằng chứng thật</th><th>Thiết kế mới</th></tr></thead>
+        <tbody>
+          <tr><td class="crit">Nguồn sự thật</td><td class="old">≥3 nơi song song, đã đo lệch nhau (797/1.847 traveler, 0/30 ngày KPI khớp)</td><td class="new">1 sổ cái duy nhất — không thể lệch</td></tr>
+          <tr><td class="crit">Nhập liệu</td><td class="old">100% gõ tay (10 cột × 1.853 dòng + 19 cột × 1.811 dòng)</td><td class="new">AI đọc ảnh/PDF + giọng nói — người chỉ xem lại</td></tr>
+          <tr><td class="crit">Chất lượng/lỗi</td><td class="old">DEFECTS 0% dùng; Reject không đơn vị; LOT NO. bị ghi đè giả</td><td class="new">PASS/HOLD/CONCESSION có cấu trúc (ISO 9001 Cl.8.7)</td></tr>
+          <tr><td class="crit">Container/tài sản</td><td class="old">Không track — Total Empty chỉ đếm tay</td><td class="new">Vòng đời đầy đủ, cảnh báo tồn đọng</td></tr>
+          <tr><td class="crit">Máy móc/thiết bị</td><td class="old">Không 1 cột nào ghi giờ chạy/dừng máy</td><td class="new">equipment_status + cờ EQUIPMENT_DOWN/CAPACITY_OVERRUN_RISK</td></tr>
+          <tr><td class="crit">Báo cáo KPI</td><td class="old">Đếm tay, sai 100% (0/30 ngày khớp)</td><td class="new">Tính tự động từ sổ cái — luôn khớp</td></tr>
+          <tr><td class="crit">Ngày giao hàng</td><td class="old">Phải hỏi người, chờ trả lời</td><td class="new">Available-to-Promise tính tự động</td></tr>
+          <tr><td class="crit">Truy vết</td><td class="old">Dò tay qua 4-5 sheet, không chắc đủ</td><td class="new">1 truy vấn genealogy đầy đủ</td></tr>
+          <tr><td class="crit">Vai trò con người</td><td class="old">Gõ + mò số liệu (~21-28 giờ/ngày)</td><td class="new">Xem lại + xử lý ngoại lệ (CCP), ít giờ hơn</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">03</span><h2>Kiến trúc phân lớp</h2></div>
+    <p class="sec-intro">AI chỉ chạy ở Lớp 1. Lớp 2 tính trước khi AI diễn giải. Ghi vào Lớp 3 chỉ xảy ra sau khi qua đúng CCP ở Lớp 5 — không có đường ghi tắt.</p>
+    <div class="arch-card">
+      <div class="layer"><span class="layer-num">LỚP 7</span><div class="layer-body"><h4>OUT / Giao diện</h4><p>Dashboard web · Hỏi-đáp giọng nói · In Packing Slip · Xuất báo cáo</p></div></div>
+      <div class="layer"><span class="layer-num">LỚP 6</span><div class="layer-body"><h4>Analytics / BI</h4><p>Yield trend · Equipment status · On-time delivery · So sánh Part#</p></div></div>
+      <div class="layer ccp"><span class="layer-num">LỚP 5</span><div class="layer-body"><h4>CCP / Human Gate</h4><p>CCP-1 Xem AI đọc · CCP-2 Xác nhận nhận kho · CCP-3 QC PASS/HOLD · CCP-4 Số PS gõ tay</p></div></div>
+      <div class="layer"><span class="layer-num">LỚP 4</span><div class="layer-body"><h4>Governance / Quality (ISO 9001 Cl.8.7)</h4><p>Non-conformance disposition · Genealogy/truy vết · Recall</p></div></div>
+      <div class="layer core"><span class="layer-num">LỚP 3</span><div class="layer-body"><h4>Ledger — 1 sổ cái duy nhất</h4><p>Thay RawMaterial/FinishGood/PackingList/ARCHIVE/ARCHIVE2/SUMMARY rời rạc hiện tại. Traveler ⇄ Pot# ⇄ Lot# ⇄ stage + Asset Ledger</p></div></div>
+      <div class="layer core"><span class="layer-num">LỚP 2</span><div class="layer-body"><h4>Core / Rule Engine (tất định, không LLM)</h4><p>Cardinality check · Yield calc · Available-to-Promise · Capacity feasibility · Safety-stock check</p></div></div>
+      <div class="layer"><span class="layer-num">LỚP 1</span><div class="layer-body"><h4>Capture (AI chỉ chạy ở đây)</h4><p>📄 Đọc file · 📷 Camera+Vision OCR · 🎙️ Voice (Whisper) · 🔖 Quét mã vạch</p></div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">04</span><h2>Pipeline dữ liệu — 1 lô hàng thật, từ trái sang phải</h2></div>
+    <div class="arch-card">
+      <div class="pipe-flow">
+        <div class="pipe-row"><span class="pipe-node">Email PO</span><span class="pipe-sep">→ Capture →</span><span class="pipe-node">Draft Forecast</span><span class="pipe-sep">→</span><span class="pipe-node ccp">CCP-1</span><span class="pipe-sep">→</span><span class="pipe-node ledger">Ledger: FORECAST</span></div>
+        <div class="pipe-row"><span class="pipe-node">Cân/đếm thật</span><span class="pipe-sep">→ Capture →</span><span class="pipe-node">Draft Received</span><span class="pipe-sep">→</span><span class="pipe-node ccp">CCP-2</span><span class="pipe-sep">→</span><span class="pipe-node ledger">Ledger: RECEIVED</span></div>
+        <div class="pipe-row"><span class="pipe-node">Voice / Split Form</span><span class="pipe-sep">→ Capture →</span><span class="pipe-node">QC Result</span><span class="pipe-sep">→</span><span class="pipe-node ccp">CCP-3</span><span class="pipe-sep">→</span><span class="pipe-node ledger">Ledger: IN_PROCESS + qc_status</span></div>
+        <div class="pipe-row"><span class="pipe-node">Scanning Sheet</span><span class="pipe-sep">→ Capture →</span><span class="pipe-node">Yield tự động</span><span class="pipe-sep">→</span><span class="pipe-node ccp">CCP-1</span><span class="pipe-sep">→</span><span class="pipe-node ledger">Ledger: PACKED + yield%</span></div>
+        <div class="pipe-row"><span class="pipe-node">Search Traveler</span><span class="pipe-sep">→ Core check HOLD →</span><span class="pipe-node">Preview Packing Slip</span><span class="pipe-sep">→</span><span class="pipe-node ccp">CCP-3/4</span><span class="pipe-sep">→</span><span class="pipe-node ledger">Ledger: SHIPPED</span></div>
+        <div class="pipe-row"><span class="pipe-sep">↳</span><span class="pipe-node">Analytics/BI đọc liên tục</span><span class="pipe-sep">→</span><span class="pipe-node">Dashboard / Voice trả lời tức thời</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">05</span><h2>Căn cứ tham khảo</h2></div>
+    <div class="ref-list">
+      <div class="ref-item"><h4>Ledger — Odoo 17 (live)</h4><p>Tham khảo trực tiếp <span class="mono">stock.quant / stock.move / stock.lot</span> — kiểm chứng qua XML-RPC thật. "Kho nguyên liệu" và "kho thành phẩm" chỉ là 2 giá trị khác nhau của field <span class="mono">stage</span>, không phải 2 bảng riêng.</p></div>
+      <div class="ref-item"><h4>PASS/HOLD/CONCESSION — Ops_Ai</h4><p>Tham khảo trực tiếp mục 9 và 18 của <span class="mono">SOFTWARE_ARCHITECTURE.md</span> — đúng ISO 9001 Cl.8.7, đã kiểm chứng qua tình huống thật (Reid's, Scenario 6).</p></div>
+      <div class="ref-item"><h4>Equipment status — Ops_Ai</h4><p>Tham khảo mục 13 — mô hình AVAILABLE/DOWN/MAINTENANCE/DEGRADED + cờ EQUIPMENT_DOWN, đã kiểm chứng qua sự cố thật (máy hỏng, chạy quá tốc độ bù, hỏng lần 2).</p></div>
+      <div class="ref-item"><h4>Voice/Camera capture — KhoAI</h4><p>Tham khảo <span class="mono">D:\xekem\KhoaiTechnicalArchitect.MD</span> — Whisper cho giọng nói, Claude Vision cho ảnh/PDF, xử lý AI luôn ở backend.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    Tài liệu THIẾT KẾ ĐỀ XUẤT — chưa code gì. Xem file đầy đủ <span class="mono">THIET_KE_HE_THONG_MOI.md</span> và báo cáo hiện trạng <span class="mono">BAO_CAO_DANH_GIA_HE_THONG.md</span> trong project AVP_AI.
+  </footer>
+
+</div>
+</body>
+</html>

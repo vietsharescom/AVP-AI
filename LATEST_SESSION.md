@@ -372,6 +372,33 @@ xác nhận trước.
   khi ra quyết định. Xem `BRS_TRS.md` mục 6e, và báo cáo riêng
   `BAO_CAO_DANH_GIA_HE_THONG.md`.
 
+### 3.7 Tiếp tục kiểm thử 2026-09-13 (Andy test GAP-013 — phần khâu 3, Import Excel)
+
+- **Andy đã test phần trên, xác nhận OK** — hành vi sau đây là ĐÚNG THIẾT KẾ,
+  không phải bug (đối chiếu code trực tiếp lúc kiểm tra):
+  - Import Excel (`DAILY LOG CHECK SHEET.xlsm`) đọc/quét (scan) thành công 20
+    dòng lên bảng nháp trình duyệt, nhưng khi bấm Lưu thì **0/20 dòng được
+    ghi vào FinishGood** — vì cả 20 traveler đều CHƯA tồn tại trong
+    RawMaterial (khâu 1). Đây là chặn nghiệp vụ cố ý
+    (`finish-good/confirm/route.ts`): không cho ghi Finish Good nếu Traveler#
+    chưa có dòng RawMaterial tương ứng.
+  - "Scan" (AI đọc + hiện bảng nháp) và "Lưu" (ghi thật vào Google Sheet qua
+    `/api/finish-good/confirm`) là 2 bước tách biệt có chủ đích, đúng nguyên
+    tắc AI không ghi thẳng Sheet (`ISO_AI_CONTROL.md`) — "đã scan" không có
+    nghĩa "đã lưu vào kho".
+  - Ô search trung tâm (`GlobalSearchBar.tsx`) tra đúng dữ liệu THẬT đã lưu
+    trong 3 tab (RawMaterial/FinishGood/PartControl), không tra bảng nháp
+    chưa lưu — nên traveler chưa lưu thì search không thấy là đúng.
+  - Kho KHÔNG gộp chung nguyên liệu/thành phẩm — 5 tab tách biệt trong 1
+    Google Sheet (RawMaterial, Warehouse, FinishGood, PartControl,
+    PackingList), liên kết nhau qua Traveler# (không phải 1 bảng chung có
+    field phân loại).
+- **Việc đang mở phát sinh từ test này** (chưa quyết định — xem mục dưới):
+  tính năng Import Excel (khâu 3) hiện chỉ dùng được cho traveler MỚI đã có
+  sẵn RawMaterial qua khâu 1 của app; với dữ liệu lịch sử cũ (traveler chưa
+  từng qua khâu 1 app này) thì luôn thất bại 100% — Andy chưa chọn hướng xử
+  lý (giữ nguyên / thêm backfill RawMaterial tự động / để sau).
+
 ### Việc đang mở (chưa quyết định)
 - **"Box QTY 31.000" trên Split Form** nghĩa là gì — nghiêng về giả
   thuyết "= Pieces gốc của Pot trước khi chia lô", nhưng CHƯA xác nhận

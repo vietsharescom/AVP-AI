@@ -1,4 +1,243 @@
 # SESSION REPORT
+## SES-20260913-002 — AVP Packing Flow (mới nhất, đọc mục này trước)
+
+> Phiên này bắt đầu SAU khi SES-20260912-001 (bên dưới) đã đóng và
+> commit+push. Nội dung SES-20260912-001 vẫn giữ nguyên bên dưới làm
+> lịch sử — không xóa, chỉ nối tiếp lên trên theo đúng quy ước "AI không
+> có trí nhớ giữa các phiên — session report thay thế trí nhớ đó".
+
+---
+
+## 1. THÔNG TIN PHIÊN
+
+| Trường | Giá trị |
+|---|---|
+| Session | SES-20260913-002 |
+| Ngày | 2026-09-13 (cùng ngày, sau khi SES-20260912-001 đã đóng) |
+| Chủ dự án | Andy Phan (Viet), Maple Leaf Group |
+| Git | **Đã commit + push nhiều lần trong phiên** (Andy xác nhận "commit push" nhiều lần). Repo gốc: push đủ lên `https://github.com/vietsharescom/AVP-AI.git`, commit cuối `99575d3`. Repo `webapp`: commit local `eea0cb0` (vẫn KHÔNG có remote riêng — GAP cũ, chưa giải quyết). |
+| Trạng thái server | `localhost:3000` chạy `npm run start`, đã rebuild+restart nhiều lần trong phiên, lần cuối verify 200 OK. Tunnel cloudflared cùng link cũ (`bumper-thomson-conferencing-negotiation.trycloudflare.com`) vẫn sống lúc kiểm tra trong phiên — có thể đã đổi nếu máy/tunnel restart sau đó. |
+
+---
+
+## 2. ĐÃ HOÀN THÀNH TRONG PHIÊN NÀY
+
+### 2.1 Xác nhận GAP-013 (redesign UI khâu 3/4) — Andy đã test, OK
+Andy xác nhận hành vi "Import Excel chỉ lưu được traveler đã có RawMaterial"
+là ĐÚNG THIẾT KẾ, không phải bug — xem chi tiết trong SES-20260912-001 mục
+3.7 (giữ nguyên bên dưới, không lặp lại).
+
+### 2.2 Sửa UX thật tìm thấy khi Andy tự test trên trình duyệt
+- **Bảng "toàn bộ đã có sẵn" (0 dòng mới) từng hiện 3 lớp thông báo trùng
+  lặp** (banner xanh "Đã lưu 0 dòng" + banner xanh dương "tổng 0" + banner
+  đỏ lặp lại) — sửa: chỉ hiện banner khi thật sự có dòng mới lưu; bỏ banner
+  đỏ lặp lại, giữ đúng 1 banner vàng liệt kê traveler trùng.
+- **Bug thật: F5 refresh sau khi bấm Lưu vẫn hiện nút Lưu xanh như mới,
+  bảng dữ liệu y hệt cũ** — nguyên nhân: bản nháp (`draft`) lưu localStorage
+  chống mất dữ liệu, nhưng kết quả "đã kiểm tra trùng" (`duplicateWarning`/
+  `allExisting`) thì KHÔNG lưu bền, nên F5 xong quên mất đã biết trùng. Sửa
+  (`TravelerSection.tsx`): tự động re-check với RawMaterial ngay khi bản
+  nháp xuất hiện (kể cả từ localStorage); nếu TOÀN BỘ travelẻr đã có sẵn thì
+  tự dọn bản nháp luôn, báo rõ lý do; nếu MỘT PHẦN thì báo ngay, không đợi
+  bấm Lưu.
+- **Dọn 2 ô search nhỏ trùng chức năng** — khâu 1 (`TravelerSection.tsx`)
+  và khâu 3 (`ScanSection.tsx`) có sẵn "Tra cứu trước khi upload" trùng với
+  ô search chung (`GlobalSearchBar.tsx`) mới thêm phiên trước — theo yêu
+  cầu Andy "search tổng phải mạnh nhất, search nhỏ dọn bớt": đã **nâng cấp
+  search chung khớp MỌI field** (không chỉ vài cột cố định) + **thêm tab
+  PackingList còn thiếu**, đồng thời **gỡ bỏ 2 ô search nhỏ**.
+- **Thêm nút "▲ Thu gọn mục này"** ở cuối mỗi khâu (khi mở) — bảng dài (vd
+  75 dòng khâu 1) trước phải cuộn lên đầu mới đóng lại được.
+
+### 2.3 Redesign khâu 2 (Kho) theo phản hồi Andy
+- Bỏ tiêu đề trùng lặp (Collapsible bar + `<h2>` bên trong cùng nói "2. Kho
+  Nguyên Vật Liệu") — đổi tên bao quát hơn: **"2. Kho — Nguyên liệu · Bán
+  thành phẩm · Thành phẩm · QA Hold"**.
+- Bảng chuyển sang **full-width, `table-fixed`** (trước để trống nhiều
+  khoảng trắng bên phải) + **sort được theo mọi cột** (bấm header, ▲/▼).
+- Thêm cột **"Ngày nhận NVL"** (từ RawMaterial — 1 ngày/traveler, đáng tin)
+  — ngày đóng gói từng LOT (có thể nhiều ngày khác nhau/traveler) đưa vào
+  tooltip rê chuột thay vì 1 cột chính.
+
+### 2.4 Tính năng mới: theo dõi phế liệu (scrap) từ Split Form
+Andy hỏi ERP hiện đại theo dõi hao phí sản xuất thế nào — phát hiện: Split
+Form có sẵn bảng **"Sorting Results / Defect # of PCS Found"** (Loose
+Washer Nut, Damaged Pilot, Mixed...) chưa từng được đọc. Đã thêm:
+- `extract.ts`: `ExtractedSplitForm.scrapEntries` (đọc bảng Defect, chỉ lấy
+  dòng có số thật, không tự bịa 0 cho ô trống).
+- `ScanSection.tsx`: tính `scrapQty`/`scrapDetail` từ `scrapEntries`, gán
+  vào mọi dòng FinishGood sinh từ form đó.
+- **2 cột thật mới trong Google Sheet FinishGood** (`scrapQty`,
+  `scrapDetail`, cột W-X) — script `scripts/add-finishgood-scrap-columns.mjs`,
+  chỉ thêm cột cuối, không đụng 22 cột/dữ liệu cũ (đã xác nhận Andy trước
+  khi chạy). Ẩn mặc định trên UI cùng nhóm Type/O-C/Reject.
+- **Còn thiếu**: đường nhập file `.xlsm` điện tử của Split Form (khi phân
+  xưởng xuất file thay vì chụp ảnh) — chưa có file mẫu thật, chưa làm được.
+
+### 2.5 Phát hiện lớn: Pot# và LOT NO. không đáng tin như tưởng
+Đo lại trên **1.853 dòng WORK ORDER thật** (`PACKING SLIPS.xlsm`) sau khi
+Andy chỉ ra "thùng chứa quay về đựng lại cùng Pot#":
+- **Pot# bị TÁI SỬ DỤNG 41,1%** (469/1.141 Pot# gắn với ≥2 traveler khác
+  nhau theo thời gian, vd Pot#1444 → 4 traveler khác nhau, 3 ngày khác
+  nhau) — quyết định cũ "Pot# là khóa tốt" chỉ đúng **trong phạm vi
+  traveler còn mở (chưa Shipped) tại cùng thời điểm**, KHÔNG đúng qua toàn
+  lịch sử. Code cảnh báo trùng Pot# đã lọc đúng theo `shipped`, không bị
+  ảnh hưởng — nhưng công cụ search/`/trace` tra toàn lịch sử thì chưa cảnh
+  báo hiện tượng này (chưa sửa UI).
+- **59% giá trị LOT NO. thật ra là CHỮ TRẠNG THÁI, không phải mã lot**:
+  `TRAVELERRECEIVED` (53,8% — chưa đóng gói, KHÔNG phải lỗi), `SORT&RETURN`
+  (1,7%), `SPLIT FROM TR#{traveler}` (~3,6%). Mã lot thật theo format
+  `6-DDD-SS-L` chỉ 41% dữ liệu, gần như không bao giờ trùng. **Đã sửa code**
+  (`finish-good/confirm/route.ts`, hàm `isLotPlaceholder`) loại 3 giá trị
+  placeholder khỏi cảnh báo "LOT đổi khác thường" — tránh báo động giả khi
+  chuyển từ `TRAVELERRECEIVED` sang mã lot thật (53,8% số dòng, hoàn toàn
+  bình thường).
+- **Sửa lại mô hình phân cấp**: Traveler# = 1 POT nguyên liệu cụ thể (không
+  phải WO); **LOT NO. mới là 1 Work Order thật** — 1 traveler có thể sinh
+  nhiều LOT/WO hợp lệ (khớp lại đúng Notes #8 cũ đã có từ trước, bị quên áp
+  dụng). Case 717671 (GAP-004) theo mô hình đúng này CÓ THỂ là 2 WO hợp lệ,
+  không mặc định là lỗi — vẫn cần chứng từ giấy gốc để kết luận chắc.
+
+### 2.6 QUYẾT ĐỊNH DỨT ĐIỂM: hậu tố Part# là sản phẩm khác nhau thật (ảnh hưởng lớn)
+Owner xác nhận trực tiếp: hậu tố Part# (`-L`/`-HT`/`-A`...) là **sản phẩm
+riêng thật** (KHÔNG phải "phủ mạ vs regular" như giả thuyết ban đầu — Andy
+đã đính chính, lý do cụ thể mỗi hậu tố CHƯA xác nhận), KHÔNG phải biến thể
+vô hại dùng chung Quantity/box. Chỉ lỗi chính tả thuần túy (thiếu/thừa dấu
+gạch ngang, vd `06512349AA`/`06512349-AA`) mới được gộp.
+- **Sửa `partControl.ts`** (`findPartControlEntry`): bỏ hẳn cơ chế "bỏ hậu
+  tố dò gần đúng" (rủi ro, đo được ảnh hưởng 85% Part# đang hoạt động) —
+  chỉ giữ chuẩn hóa dấu gạch ngang thuần túy làm fallback duy nhất.
+- **Tác động thật đo được**: 36/39 Part# đang hoạt động (92%, tăng từ 3)
+  giờ đúng là "thiếu trong PartControl", cần bổ sung Quantity/box riêng —
+  KHÔNG BLOCK gì (chỉ cảnh báo, giống hành vi cũ), nhưng QUANTITY trên
+  Packing List sẽ lùi về dùng số ghi tay lúc scan (kém tin cậy hơn) cho tới
+  khi bổ sung xong.
+- Danh sách đầy đủ 36 Part# (kèm số traveler dùng) → file mới
+  `BANG_MA_CAN_OWNER_DUYET.md` mục 1.
+
+### 2.7 Phát hiện mới: mã Serial#/SSCC ở mức từng box — CHƯA đưa vào hệ thống
+Trên nhãn đóng gói thật (Split Form) có dòng "Serial#: X to Y" — kiểm
+chứng bằng số học: dải serial ĐÚNG BẰNG số carton (36 carton ↔ 36 số liên
+tiếp; 15 carton ↔ 15 số liên tiếp, 2/2 lần khớp) → mỗi carton có 1 serial
+riêng, đúng chuẩn GS1 **SSCC** (Serial Shipping Container Code). Đây là
+mắt xích truy vết cấp box hiện **hoàn toàn chưa đọc** (schema
+`packagingEntries` không có field này). Đã bàn với Andy nhưng **CHƯA
+code** — chờ quyết định có làm không.
+
+### 2.8 Owner cung cấp trực tiếp 6 thông tin quan trọng (qua Andy)
+1. PO đi trước qua email, nguyên liệu thật về **cùng ngày** (không có độ
+   trễ lớn như lo ngại ban đầu) — hạ độ khẩn cấp lo ngại "vi phạm nguyên
+   tắc MRP" đã nêu trước đó.
+2. Pot# do **Infasco cấp số** (không phải AVP tự đánh).
+3. Quy trình nhận hàng thật: nhân viên kho **scan barcode trên thùng/bin
+   Pot#** → tự động phân Pieces về đúng máy → sinh Split Form riêng cho
+   máy đó — đây là chi tiết quan trọng cho thiết kế bước Goods Receipt còn
+   thiếu (khối C trong báo cáo ERP).
+4. LOT# từ Infasco **đôi khi giao trễ** — giải thích nguyên nhân
+   `TRAVELERRECEIVED` phổ biến (đang chờ Infasco cấp LOT#, không phải lỗi).
+5. Hậu tố Part# là sản phẩm riêng thật — xem mục 2.6.
+6. Yêu cầu thống kê toàn bộ bảng mã hiện có cho Owner duyệt → file mới
+   `BANG_MA_CAN_OWNER_DUYET.md`.
+
+### 2.9 Tài liệu mới/cập nhật trong phiên
+- **`CAU_HOI_CHO_OWNER_THEO_CHUAN_ERP.md` + `.docx`** (mới) — tổng hợp toàn
+  bộ câu hỏi từ `Notes.md`+`LATEST_SESSION.md` theo 8 khối chuẩn ERP (Master
+  Data → Sales Order → **Goods Receipt** → Work Order → QC → Traceability
+  → Shipping → Legacy), kèm **Bảng quan hệ dữ liệu (Cardinality Map)**, sơ
+  đồ truy vết Xuôi/Ngược, và **Lộ trình cải tiến 5 giai đoạn (0-4) xếp theo
+  PHỤ THUỘC** (không phải theo độ khó — bài học từ chính vụ PartControl).
+- **`BANG_MA_CAN_OWNER_DUYET.md` + `.docx`** (mới) — danh sách làm việc 7
+  mục: 36 Part# thiếu Quantity/box, hậu tố quan sát được, mã máy (25 mã từ
+  sheet `Status`), mã nhân viên quan sát được (chưa chính thức), mã thiết
+  bị QC (chưa tìm thấy), quy ước LOT NO., Serial#/SSCC.
+- **`BRS_TRS.md`** — mục 3b mới (Pot# tái sử dụng 41,1%, quy ước LOT NO.
+  chi tiết).
+- **`Notes.md`** — PHẦN 4 (câu #58-77) + PHẦN 5 (câu #78-80) — toàn bộ
+  Q&A phiên này, bao gồm cả những câu đã tự sửa lại khi Andy chỉnh ("không
+  phải mạ", "LOT mới là WO"...).
+- **`LATEST_SESSION.md`** (file này) — mục "Quyết định đã chốt" đã sửa lại
+  2 câu sai phạm vi (Pot# 1:1 "vĩnh viễn", Traveler# = WO).
+- Sửa file `md_to_docx.py` (script nội bộ, không thuộc repo) — bảng dùng
+  viền xám nhạt thay vì viền đen mặc định của Word.
+
+---
+
+## 3. TRẠNG THÁI HIỆN TẠI & GAP MỚI PHÁT SINH PHIÊN NÀY
+
+- **GAP-015 (mới)**: Thiếu hẳn bước **Goods Receipt** (xác nhận nguyên
+  liệu về kho vật lý thật) — RawMaterial hiện chỉ là dự báo email, không có
+  checkpoint nào xác nhận "đã về kho thật" trước khi tính vào đối chiếu
+  khâu 2. Tab `Warehouse` sinh ra đúng để làm việc này nhưng đang chết.
+  Owner đã làm rõ quy trình thật (mục 2.8.3) — cần quyết định: ô nào trên
+  Split Form là số nhận thật (Pieces hay Box QTY — "SL=PLT" Andy nhắc
+  nhưng chưa xác định được field cụ thể), lưu vào đâu (hồi sinh
+  `Warehouse` hay thêm field `RawMaterial`), nút chụp đặt ở khâu 2 hay
+  dùng chung khâu 3.
+- **GAP-016 (mới)**: **36 Part# đang hoạt động thiếu Quantity/box** trong
+  PartControl (tăng từ GAP-007 cũ 21 mã, do sửa lại cách khớp đúng theo
+  xác nhận Owner) — xem `BANG_MA_CAN_OWNER_DUYET.md` mục 1. Không block
+  gì, chỉ giảm độ tin cậy QUANTITY trên Packing List cho các Part# này.
+  Cùng dịp phát hiện: 5/21 mã GAP-007 cũ thực ra là lỗi chính tả (thiếu/
+  thừa gạch ngang hoặc tiền tố "P"), không phải mã mới — nên tự gộp lại
+  thay vì thêm dòng.
+- **GAP-017 (mới)**: Mã Serial#/SSCC (mức box/carton) có sẵn trên giấy
+  nhưng hệ thống chưa đọc — xem mục 2.7. Chưa quyết định có làm không.
+- ~~GAP-013~~: **ĐÃ TEST, OK** — Andy xác nhận hành vi Import Excel đúng
+  thiết kế (xem mục 2.1).
+- Các GAP cũ (GAP-001, 003, 004, 005, 007→016, 008, 009, 010, 012, 014)
+  từ SES-20260912-001 **vẫn còn nguyên trạng, chưa xử lý thêm trong phiên
+  này** trừ khi ghi rõ ở trên — xem đầy đủ ở phần lịch sử bên dưới.
+
+### Việc đang mở (chưa quyết định) — MỚI phiên này
+- Có làm bước Goods Receipt (GAP-015) không, và làm thế nào — đang chờ
+  Owner xác nhận field nào là số thật trên Split Form.
+- Có đọc Serial#/SSCC vào hệ thống không (GAP-017).
+- Ý nghĩa CỤ THỂ từng hậu tố Part# (`-L`, `-HT`, `-A`, `-T`, `-B`, `-X`,
+  `-MY-AK`...) — biết là sản phẩm khác nhau rồi, chưa biết mỗi ký hiệu là
+  gì.
+- Danh sách mã máy (25 mã, sheet `Status`) và mã nhân viên — cần Owner xác
+  nhận còn đúng/đủ, và cung cấp danh sách nhân viên chính thức.
+- Mã thiết bị QC (Hardness/Tensile/Proof Load) — chưa tìm thấy trên Split
+  Form, chưa biết có tồn tại ở đâu khác không.
+
+---
+
+## 4. BẮT ĐẦU PHIÊN SAU TỪ ĐÂY
+
+### Việc ưu tiên tiếp theo
+1. Owner trả lời câu hỏi Giai đoạn 0 trong `CAU_HOI_CHO_OWNER_THEO_CHUAN_ERP.md`
+   (ô nào là số nhận kho thật, ý nghĩa hậu tố từng loại, MC# máy hay trạm)
+   — mọi việc code tiếp theo ở khối Goods Receipt/PartControl phụ thuộc
+   trực tiếp vào đây.
+2. Rà soát dần `BANG_MA_CAN_OWNER_DUYET.md` — ưu tiên mục 1 (36 Part#
+   thiếu Quantity/box, đã sắp theo số traveler dùng nhiều nhất trước).
+3. Quyết định có làm Goods Receipt (GAP-015) và Serial#/SSCC (GAP-017)
+   không — 2 việc mới, ảnh hưởng lớn nếu làm.
+4. Các việc cũ từ SES-20260912-001 vẫn treo — xem mục 5 phần lịch sử bên
+   dưới (GAP-004 717671, GAP-008/010 sửa tay Sheet, GAP-012 MC#...).
+5. Kiểm tra lại link tunnel — có thể đã đổi nếu máy/tunnel restart.
+
+### Cảnh báo cho phiên sau
+- ⚠ File Word gốc `CAU_HOI_CHO_OWNER_THEO_CHUAN_ERP.docx` Andy có thể đang
+  mở/chỉnh tay trực tiếp trong Word — kiểm tra khóa file trước khi ghi đè,
+  đọc note Andy thêm vào (nếu có) trước khi thay thế nội dung.
+- ⚠ `partControl.ts` vừa đổi hành vi — nếu thấy nhiều cảnh báo "Part#
+  không có trong PartControl" hơn hẳn trước đây, đó là ĐÚNG dự kiến (tăng
+  từ 3 lên 36), không phải bug mới.
+- ⚠ Toàn bộ cảnh báo cũ dựa trên "Traveler# = WO" hoặc "Pot# = khóa vĩnh
+  viễn" cần đọc lại đúng phạm vi mới (mục 2.5) trước khi dùng để giải
+  thích cho Owner.
+
+---
+
+*Session Report SES-20260913-002 — cập nhật lần cuối 2026-09-13 (đóng
+phiên, đã commit+push). Phần dưới đây (SES-20260912-001) là lịch sử phiên
+trước, giữ nguyên không sửa.*
+
+---
+---
+
+# SESSION REPORT (LỊCH SỬ — PHIÊN TRƯỚC)
 ## SES-20260912-001 — AVP Packing Flow
 
 > **ĐỌC FILE NÀY TRƯỚC** khi bắt đầu phiên làm việc tiếp theo.
@@ -472,7 +711,10 @@ xác nhận trước.
 - DESCRIPTION = Oprtr + Machine + MC# + S/P + Special Notes. KHÔNG gồm
   Type/Nut-Bolt (xem `BRS_TRS.md` mục 4).
 - QUANTITY = BOX × Quantity/box (PartControl), không copy thẳng TTL QNT.
-- Part# hậu tố mạ/vật liệu không ảnh hưởng Quantity/box.
+- ~~Part# hậu tố mạ/vật liệu không ảnh hưởng Quantity/box~~ — **ĐÍNH CHÍNH
+  2026-09-13 (SES-20260913-002)**: Owner xác nhận hậu tố (`-L`/`-HT`/`-A`...)
+  là **sản phẩm khác nhau thật**, không dùng chung Quantity/box với mã gốc.
+  Đã sửa `partControl.ts` — xem mục 2.6 phiên mới nhất ở đầu file.
 - Ngưỡng cảnh báo mặc định cho đối chiếu số lượng: 10% (riêng cảnh báo
   lệch nhận kho ở khâu 2 dùng 5%).
 - Khóa "1 lần sản xuất/đóng gói" = (Traveler#, LOT NO.), không phải chỉ

@@ -1,5 +1,218 @@
 # SESSION REPORT
-## SES-20260913-002 — AVP Packing Flow (mới nhất, đọc mục này trước)
+## SES-20260914-001 — AVP Packing Flow (mới nhất, đọc mục này trước)
+
+> Phiên này bắt đầu SAU khi SES-20260913-002 (bên dưới) đã đóng. Nội dung
+> SES-20260913-002 vẫn giữ nguyên bên dưới làm lịch sử — không xóa, chỉ nối
+> tiếp lên trên theo đúng quy ước "AI không có trí nhớ giữa các phiên —
+> session report thay thế trí nhớ đó".
+
+---
+
+## 1. THÔNG TIN PHIÊN
+
+| Trường | Giá trị |
+|---|---|
+| Session | SES-20260914-001 (phiên rất dài, nhiều hạng mục lớn) |
+| Ngày | 2026-09-14 |
+| Chủ dự án | Andy Phan (Viet), Maple Leaf Group |
+| Git | **CHƯA commit/push** — rất nhiều thay đổi code (`webapp/`) trong phiên này vẫn ở dạng working tree, Andy chưa xác nhận commit. Không tự ý commit. |
+| Trạng thái server | `localhost:3000` chạy `npm run start`, đã rebuild+restart rất nhiều lần trong phiên (mỗi lần sửa code), lần cuối verify 200 OK. |
+| Link demo | https://petition-humanity-const-item.trycloudflare.com (tunnel cũ `bumper-thomson-...` đã chết giữa phiên, đã khởi động lại tunnel mới — link đổi, sẽ đổi tiếp nếu tunnel/máy restart) |
+
+---
+
+## 2. ĐÃ HOÀN THÀNH TRONG PHIÊN NÀY
+
+### 2.1 Thiết kế lại toàn bộ cổng nhập liệu — gộp thành 1 "CaptureGate" chung
+Bắt đầu từ yêu cầu GAP-015 (Goods Receipt), Andy dừng lại giữa chừng và chỉ ra
+vấn đề lớn hơn: mỗi khâu (1/2/3) đang có nút chụp/scan riêng — không cần
+thiết, tham khảo layout "Ask anything" của dashboard Ops_Ai. Đã thiết kế lại
+toàn bộ:
+- **`CaptureGate.tsx`** (mới) — 1 cổng quét/chụp DUY NHẤT, đặt ngay dưới
+  `GlobalSearchBar` ở trang chủ, dùng chung cho cả `/inbox`, `/scan`,
+  `/warehouse`. Chọn 1 trong 3 đích đến (**"PO tham khảo — dự báo"** /
+  **"Kho nguyên liệu — đã nhận thật"** / **"Finish Good — đóng gói/scan"**)
+  rồi mới bấm "Chụp/chọn file" — đổi đích đến tự xoá file đang chọn (sửa bug
+  thật: đổi đích tự động quét lại file cũ).
+- **`TravelerSection.tsx`** refactor nhận `file`/`destination` từ ngoài (props),
+  bỏ nút upload nội bộ, dùng chung cho cả 2 đích "PO tham khảo" và "Kho
+  nguyên liệu" (cùng 1 tài liệu PO/email, chỉ khác Ý ĐỊNH lưu — Andy xác
+  nhận đây không phải 2 loại tài liệu khác nhau).
+- **`ScanSection.tsx`** refactor tương tự cho "Finish Good" — tự nhận diện
+  Excel (đọc thẳng) vs ảnh/PDF (thử Scanning Sheet trước, 0 dòng thì tự thử
+  Split Form) — không cần hỏi loại tài liệu.
+- Route mới **`/api/warehouse/confirm-batch`** (nhiều dòng, không chặn cứng
+  nếu chưa có RawMaterial forecast — khác route `warehouse/confirm` cũ
+  1-dòng, vẫn giữ nguyên không xoá).
+- Bỏ 2 khung Collapsible "1. Email/Dự báo" và "3. Finish Good" ở trang chủ
+  (không còn nội dung riêng) — còn lại: CaptureGate chung → Kho (đối chiếu)
+  → Packing List.
+- `GlobalSearchBar.tsx` thêm tra cứu tab Warehouse (sống lại) + lắng nghe
+  event `avp:data-changed` để tự làm mới.
+- Sau khi Lưu (bất kỳ đích đến nào) → tự cuộn xuống khung "Kho" (nơi duy
+  nhất hiện kết quả đối chiếu cho cả 3 loại dữ liệu).
+
+### 2.2 PDF cũng đối chiếu được bằng barcode (trước chỉ ảnh chụp mới có)
+Andy yêu cầu PDF cũng phải được giải mã barcode như ảnh chụp (đối chiếu
+Traveler# đáng tin hơn AI đọc chữ). Đã thêm:
+- **`pdfRender.ts`** (mới) — dùng `pdfjs-dist` + `@napi-rs/canvas` render
+  từng trang PDF thành PNG (scale 3.0 ≈ 216 DPI), rồi đưa qua đúng bộ giải
+  mã barcode đang dùng cho ảnh (`decodeBarcodesSortedTopToBottom`). Có giới
+  hạn an toàn: tối đa 40 trang, timeout 45 giây.
+- Gặp + sửa liên tiếp 3 lỗi kỹ thuật thật: (1) `CanvasFactory is not a
+  constructor` (đưa nhầm instance thay vì class), (2) `API version does not
+  match Worker version` — do `pdf-parse` mang theo bản `pdfjs-dist` cũ hơn
+  (5.4.296) nạp sẵn vào module graph trước khi code mới (6.3.289) kịp chạy
+  → sửa bằng cách chuyển import `pdf-parse` trong `extract.ts` sang **lazy
+  import** (chỉ tải khi thật sự cần) + sắp lại thứ tự gọi (render PDF trước,
+  `extractPoFromPdfText` chỉ chạy sau, chỉ khi cần fallback). (3)
+  `require.resolve`/`import.meta.resolve` đều không hoạt động trong runtime
+  Turbopack đã bundle — dùng `path.join(process.cwd(), ...)` trực tiếp.
+- Test thật với `PO193902.pdf` (đúng file từng gây lỗi PO đọc nhầm 193904
+  trước đây) — PO Number đối chiếu đúng 193902; giải mã được phần lớn
+  barcode dòng traveler nhưng không phải 100% (29/34 dòng trên 1 file cụ
+  thể) — hệ thống AN TOÀN: khi không khớp đủ số lượng, tự động fallback về
+  AI đọc chữ + cảnh báo rõ, không tự tin nhầm.
+
+### 2.3 File PDF nhiều trang — tự chia lô, không chặn/bắt tách file tay
+Phát hiện qua test thật: `SCANNING SHEET-1.pdf` (20 trang) mất **~3 phút**
+để xử lý (do thiết kế có sẵn từ phiên trước: đọc từng trang một qua AI,
+nghỉ 4.5s/trang để tránh giới hạn tốc độ Gemini — tránh lỗi lộn cột đã từng
+gặp thật). Qua tunnel, request bị ngắt giữa chừng ("Failed to fetch") dù
+server vẫn xử lý xong bình thường ở local. Đã thêm (ScanSection.tsx):
+- Đếm số trang PDF ngay trong trình duyệt (pdf-lib, không cần gọi server).
+- File >10 trang: **tự động chia thành nhiều lô ≤10 trang**, tự chạy lần
+  lượt từng lô ngay trong lần chờ đó (không cần tải lại trang, không cần
+  Anh tự tách file) — có banner tiến độ "đang xử lý lô X/Y".
+
+### 2.4 Sửa bug thật: cột SHIPPED="0" bị hiểu nhầm là "đã xuất"
+`scan/extract-excel` (đọc `DAILY LOG CHECK SHEET.xlsm`) coi MỌI giá trị
+khác rỗng ở cột SHIPPED là "đã xuất" — nhưng file thật dùng quy ước **"0" =
+chưa xuất, "SHIPPED" = đã xuất** (không có ô trống) — nên gần như loại sạch
+toàn bộ 1.811 dòng, chỉ lọt đúng 1 dòng. Đã sửa: giờ nhận đúng **179 dòng
+thật sự chưa Shipped**. Andy đã test thật: đọc 179 dòng, lưu thành công
+**44 dòng** vào Finish Good (135 dòng còn lại bị chặn đúng lý do "Traveler
+chưa có RawMaterial" — dẫn tới mục 2.5).
+
+### 2.5 Nhập lịch sử traveler từ `PACKING SLIPS.xlsm` (sheet WORK ORDER)
+Để có RawMaterial cho các traveler bị chặn ở mục 2.4, đã xây route mới
+**`/api/email/extract-excel`** đọc thẳng sheet "WORK ORDER" (1.853 dòng
+thật) — khác đường OCR email (1 PO/ngày dùng chung cho cả lô), mỗi dòng ở
+đây giữ đúng **PO/Ngày/Shipped/PS THẬT riêng của chính nó** (field mới
+`poRow`/`dateRow`/`shippedRow`/`psRow` trên `ExtractedTravelerRow`,
+`raw-material/confirm` ưu tiên dùng khi có). Cũng sửa đúng lỗi SHIPPED="0"
+y hệt mục 2.4 (PS cột cũng dùng "0" làm placeholder — không lưu thành PS
+thật). **Đã test thật với 5 dòng mẫu** (701126, 701127, 705988, 706811,
+707330 — verify trực tiếp trong Sheet, đúng 100% cả PO/Ngày/Shipped/PS) —
+**CHƯA chạy toàn bộ 1.853 dòng**, đang chờ Andy quyết định chạy full qua
+API hay tự làm qua UI. 5 traveler test trên hiện có `note="TEST sample
+import"` trong RawMaterial thật — không phải dữ liệu giả, chỉ là ghi chú
+hơi gây hiểu lầm, không cần xoá.
+
+### 2.6 Cải thiện bảng draft (dễ đối chiếu với giấy/Excel gốc)
+- Thêm **cột "#"** (số thứ tự dòng), **sọc chẵn/lẻ**, **ngắt nhóm mỗi 5
+  dòng** (viền đậm hơn) — áp dụng cho cả `TravelerSection.tsx` lẫn
+  `ScanSection.tsx`. Dòng "low confidence" đánh dấu bằng vạch vàng ở cột số
+  thứ tự (không đè lên màu sọc chẵn/lẻ).
+- **Tự tính Quantity = Box × PartControl** trong `ScanSection.tsx` (đúng
+  công thức Packing List đã dùng) — tự điền khi vừa quét xong, tự tính lại
+  khi sửa tay ô Box. Part# chưa có PartControl thì giữ nguyên số đọc được.
+- Nút **"+ Nhập tay 1 dòng"** trước chỉ có ở Finish Good — đã thêm y hệt vào
+  `TravelerSection.tsx` (PO tham khảo / Kho nguyên liệu) cho đồng nhất.
+
+### 2.7 Bảng "Tình trạng PO" / "Tình trạng Packing Slip"
+- **`PoStatusTable.tsx`** (mới) — gộp RawMaterial theo PO Number, hiện
+  ngay khi chọn đích "PO tham khảo": Ngày/Số traveler/Tổng Pieces/Tổng
+  Weight/Đã xuất-Tổng/Trạng thái (Đã đóng/Đang mở), sort được, **bấm vào 1
+  PO để mở rộng xem chi tiết từng traveler** thuộc PO đó.
+- **`PsStatusTable.tsx`** (mới) — tương tự nhưng gộp theo Packing Slip đã
+  duyệt/xuất thật (tab PackingList), có nút thu gọn ▴/▾.
+- Cả 2 bảng đều **loại traveler TEST*** (dữ liệu test cũ, không phải hàng
+  thật) — cũng đã áp dụng filter này vào `packing-list/generate` (bản nháp
+  xuất hàng thật không còn lẫn traveler test).
+
+### 2.8 Dọn Packing List
+- Bỏ ô "Tìm nhanh" cục bộ (trùng chức năng GlobalSearchBar, gây rối: lọc
+  bảng đang xuất hàng khiến cảnh báo/nút Duyệt vẫn tính trên toàn bộ dòng
+  trong khi bảng hiện 0 dòng) — dùng ô search chung thay thế.
+- Thêm cột **"INV. DATE"** (trước có field nhưng không hiện ra bảng).
+- Giữ nguyên "+ Thêm dòng theo Traveler#" tại chỗ (khác bản chất "Tìm
+  nhanh": đây là THÊM dữ liệu — tra VLOOKUP rồi chèn dòng mới — không phải
+  lọc xem).
+
+### 2.9 Khác
+- Xác nhận lại (không sửa code) nguyên tắc "nguyên liệu vào" hiện đang dùng
+  lối tắt (= RawMaterial.pieces trực tiếp, không chốt chặn qua Goods
+  Receipt) trong khi code chuẩn ERP (đích đến "Kho nguyên liệu" xác nhận
+  vật lý) vẫn giữ nguyên, không bị xoá — đúng ý Andy "tạm dùng lối tắt,
+  đừng bỏ code đúng".
+- Đã viết + xuất file Word báo cáo Owner: [`EMAIL_GUI_CHU_2026-09-14.md`](../EMAIL_GUI_CHU_2026-09-14.md) /
+  `.docx` — tổng hợp câu hỏi + bảng mã cần Owner duyệt, kèm bối cảnh thật
+  (phản hồi của quản lý Tâm sau demo).
+
+---
+
+## 3. TRẠNG THÁI HIỆN TẠI & GAP MỚI/CÒN MỞ
+
+- **Chưa chạy full 1.853 dòng WORK ORDER** vào RawMaterial (mục 2.5) — đã
+  test kỹ với mẫu nhỏ, chỉ chờ Andy quyết định cách chạy (API hay UI).
+- **135 dòng Finish Good** (từ 179 dòng CHECKING SUMMARY) vẫn đang bị chặn
+  vì thiếu RawMaterial — sẽ tự hết khi chạy xong mục trên.
+- **4 dòng TEST cũ trong tab Warehouse** (717365/717844/718439/718440) —
+  đã hỏi Andy xoá hay giữ, **chưa có câu trả lời rõ ràng**.
+- **Item 5 (di chuyển nút "+ Thêm dòng theo Traveler#" lên khu vực chung)**
+  — Andy có nhắc tới nhưng sau khi giải thích khác bản chất với search thì
+  đồng ý giữ nguyên tại chỗ — coi như đã xử lý (không cần làm nữa), trừ khi
+  Andy yêu cầu lại.
+- **Item 6 (scan Packing Slip giấy cũ + tự phát hiện xung đột)** — Andy xác
+  nhận muốn: quét → đối chiếu traveler đã có RawMaterial/FinishGood chưa,
+  phát hiện trùng PS/traveler đã xuất ở đâu rồi mới quyết định ghi Shipped.
+  **CHƯA LÀM** — rủi ro cao (ghi trực tiếp Shipped=TRUE), cần thiết kế kỹ
+  trước khi code.
+- Nhiều cảnh báo thật xuất hiện khi test import lịch sử (chưa xử lý, chỉ
+  mới hiện cho Andy xem): nghi trùng máy MC#, Part# thiếu PartControl,
+  Quantity lệch >10% so với Pieces, và **1 cảnh báo mạnh traveler 718008**
+  (Pot# scan "596" khác Pot# RawMaterial "598" — nghi AI đọc lộn dòng, cần
+  đối chiếu giấy gốc).
+- Toàn bộ GAP cũ từ các phiên trước (GAP-001, 003, 004, 007, 009, 010, 012,
+  016, 017...) chưa xử lý gì thêm trong phiên này trừ khi ghi ở trên — xem
+  lịch sử bên dưới.
+
+---
+
+## 4. BẮT ĐẦU PHIÊN SAU TỪ ĐÂY
+
+### Việc ưu tiên tiếp theo
+1. Quyết định chạy full 1.853 dòng WORK ORDER vào RawMaterial — đã test
+   sẵn sàng, chỉ chờ xác nhận.
+2. Xử lý cảnh báo mạnh traveler 718008 (Pot# lệch) — đối chiếu giấy gốc.
+3. Quyết định 4 dòng TEST cũ trong Warehouse — xoá hay giữ.
+4. Thiết kế + code tính năng scan Packing Slip cũ (mục 2.9 GAP item 6) —
+   cần bàn kỹ luồng conflict-detection trước khi code.
+5. **Commit + push code** khi Andy xác nhận (rất nhiều thay đổi working
+   tree chưa commit từ phiên này).
+
+### Cảnh báo cho phiên sau
+- ⚠ Link tunnel đã đổi (`petition-humanity-const-item.trycloudflare.com`)
+  — kiểm tra lại còn sống không, có thể đã đổi tiếp nếu máy/tunnel restart.
+- ⚠ RawMaterial hiện có 5 dòng thật (701126, 701127, 705988, 706811,
+  707330) với `note="TEST sample import"` — là dữ liệu THẬT từ WORK ORDER,
+  không phải giả, chỉ ghi chú gây hiểu lầm.
+- ⚠ `raw-material/confirm` giờ có logic mới: dòng có `poRow`/`dateRow`/
+  `shippedRow`/`psRow` (từ Excel import) sẽ ghi đúng giá trị đó thay vì mặc
+  định `shipped=FALSE` — chỉ áp dụng khi các field này có mặt, đường OCR
+  email cũ không đổi hành vi.
+
+---
+
+*Session Report SES-20260914-001 — cập nhật lần cuối 2026-09-14 (chưa đóng
+phiên chính thức, chưa commit/push — chờ Andy xác nhận).*
+
+---
+---
+
+# SESSION REPORT
+## SES-20260913-002 — AVP Packing Flow
 
 > Phiên này bắt đầu SAU khi SES-20260912-001 (bên dưới) đã đóng và
 > commit+push. Nội dung SES-20260912-001 vẫn giữ nguyên bên dưới làm

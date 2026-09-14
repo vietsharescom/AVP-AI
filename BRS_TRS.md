@@ -98,6 +98,36 @@ trong `BRS.md` bằng dữ liệu thật — chỗ nào khác với bản nháp 
 - **1 Part# → đúng 1 giá trị "Quantity per box" cố định** trong PartControl (không đổi theo traveler/pot, chỉ đổi khi đổi Part#).
 - **1 Traveler đã dùng trong 1 Packing Slip (P) → không được dùng lại ở Packing Slip khác** (tránh xuất trùng 1 lô hàng 2 lần) — đây là ràng buộc SHIPPED=TRUE sau khi duyệt. Cần xem lại có nên áp dụng theo (Traveler#, LOT NO.) thay vì chỉ Traveler# hay không.
 
+## 3b. Quy ước LOT NO. và giới hạn thật của Pot#/SKID# (2026-09-13)
+
+**Pot# KHÔNG phải khóa vĩnh viễn** — đo trên 1.853 dòng WORK ORDER thật
+(`PACKING SLIPS.xlsm`): **469/1.141 Pot# (41,1%) bị tái sử dụng cho ≥2
+traveler khác nhau theo thời gian** (thùng chứa vật lý quay vòng: nhận →
+rỗng → trả Infasco → nhận lại nguyên liệu mới, dùng lại đúng số Pot# cũ).
+Ví dụ thật: Pot# 1444 gắn với 4 traveler khác nhau (712993, 714076, 717325,
+714325) trên 3 ngày khác nhau. Kết luận: "Traveler# → Pot# là 1:1" **chỉ
+đúng trong phạm vi các traveler CÒN MỞ (chưa Shipped) tại cùng thời điểm**
+— code cảnh báo trùng Pot# (`raw-material/confirm`, `finish-good/confirm`)
+đã lọc đúng theo `shipped !== TRUE` nên không bị ảnh hưởng, nhưng công cụ
+tra cứu toàn lịch sử (ô search chung, `/trace`) sẽ hiện nhiều traveler
+không liên quan nếu tra Pot# cũ — cần ghi chú UI, chưa làm (xem
+`CAU_HOI_CHO_OWNER_THEO_CHUAN_ERP.md` khối F).
+
+**Quy ước LOT NO. thật** — đo trên 1.750 dòng có LOT NO.: chỉ **41,0%
+(717 dòng) là mã lot thật**, đúng format `6-DDD-SS-L` (hằng số "6" + 3 chữ
+số + 2 chữ số + 1 chữ cái, vd `6-247-03-b`) — nhóm này gần như không bao
+giờ trùng. **59% còn lại là CHỮ TRẠNG THÁI, không phải mã lot**:
+- `TRAVELERRECEIVED` — 941 dòng (53,8% — **trạng thái phổ biến nhất**:
+  traveler đã nhận, CHƯA đóng gói/chưa có lot).
+- `SORT&RETURN` — 29 dòng (hàng trả lại, không ra lot).
+- `SPLIT FROM TR#{traveler}` — ~63 dòng (ghi chú tách từ traveler khác).
+
+**Đã sửa code** (`finish-good/confirm/route.ts`, hàm `isLotPlaceholder`):
+loại 3 giá trị placeholder trên ra khỏi tập so sánh "LOT NO. có đổi khác
+thường không" trước khi cảnh báo — nếu không, việc chuyển từ
+`TRAVELERRECEIVED` sang mã lot thật (xảy ra ở hơn nửa số dòng, hoàn toàn
+bình thường) sẽ bị báo động giả là lỗi trùng/đọc nhầm.
+
 ## 4. Công thức DESCRIPTION (P5) — làm rõ theo dữ liệu thật
 
 Bản nháp: `P5 = S3+S11+S12+S8+S10`. Đối chiếu với các DESCRIPTION thật đã

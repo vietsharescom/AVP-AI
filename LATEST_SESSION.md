@@ -487,9 +487,20 @@ xác nhận trước.
   mục 3).
 - **SKID# không phải khóa định danh** — 1 skid chứa chung nhiều traveler
   (77,4% thật) — không dùng SKID# để đối chiếu/chống trùng.
-- **Pot# là "khóa" tốt nhất để tự phát hiện/gợi ý Traveler# bị đọc sai** —
-  tốt hơn Part# (Part# lặp lại ở nhiều traveler, không định danh riêng
-  được).
+- **Pot# là "khóa" tốt để tự phát hiện/gợi ý Traveler# bị đọc sai — NHƯNG
+  chỉ trong phạm vi traveler CÒN MỞ (chưa Shipped) tại cùng thời điểm**
+  (⚠ sửa lại 2026-09-13: đo trên 1.853 dòng WORK ORDER thật, **469/1.141
+  Pot# (41,1%) bị TÁI SỬ DỤNG** cho ≥2 traveler khác nhau theo thời gian —
+  thùng chứa vật lý quay vòng nhận→rỗng→trả→nhận lại. KHÔNG phải khóa vĩnh
+  viễn qua toàn lịch sử — xem `BRS_TRS.md` mục 3b).
+- **LOT NO. mới là đơn vị "Work Order" thật, không phải Traveler#** (⚠ sửa
+  lại 2026-09-13): Traveler# = 1 pot nguyên liệu cụ thể; mỗi LẦN đóng
+  gói/sản xuất riêng (1 LOT NO.) mới là 1 Work Order — 1 traveler có thể
+  sinh nhiều LOT/nhiều WO hợp lệ. Quy ước LOT NO. thật: chỉ 41% là mã lot
+  thật (`6-DDD-SS-L`), **59% còn lại là chữ trạng thái** (`TRAVELERRECEIVED`
+  53,8%, `SORT&RETURN` 1,7%, `SPLIT FROM TR#...` ~3,6%) — đã sửa code
+  `finish-good/confirm/route.ts` (`isLotPlaceholder`) loại các giá trị này
+  khỏi cảnh báo "LOT đổi khác thường" (xem `BRS_TRS.md` mục 3b).
 - **PDF Scanning Sheet bị nhúng sideways phải tự xoay 270° trước khi gửi
   AI** — đã code hóa thành quy tắc cố định trong `splitPdfPages`, không
   phải xử lý tay từng file (xem `BRS_TRS.md` mục 7.4).

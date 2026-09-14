@@ -172,3 +172,21 @@ Lộ trình cải tiến 5 giai đoạn (0-4) đã thêm vào cuối
 Mục 75-77 (LOT NO. = WO thật, quy ước LOT NO., Pot# tái sử dụng 41,1%) đã
 sửa trực tiếp vào code + `BRS_TRS.md` mục 3b — nên coi là bản cập nhật cho
 "Quyết định đã chốt" cũ trong `LATEST_SESSION.md`, chưa đồng bộ file đó.*
+
+---
+
+## PHẦN 5 — Owner cung cấp thông tin trực tiếp (2026-09-13, qua Andy)
+
+| # | Nội dung Owner cung cấp | Claude xử lý thế nào | Trạng thái |
+|---|---|---|---|
+| 78 | Serial# trên nhãn đóng gói — từ code này truy ngược ra skid/pallet/máy/lot thế nào? | Giải thích: Traveler#, Part#, Pot#, LOT#, Máy, Skid# đều in CÙNG 1 nhãn với Serial# — truy ngược là 1-hop, không phải chuỗi nhiều tầng. Nhưng độ tin cậy Skid#/Máy vẫn giữ nguyên giới hạn cũ (skid dùng chung, GAP-012 chưa xác nhận). | ✅ Đã trả lời |
+| 79 | ERP có quy trình truy vết và quy định mã code (chuẩn) | Giải thích khung GS1 chuẩn: GTIN=Part#, Batch/Lot=LOT NO., SSCC=Serial#/box. Đối chiếu: AVP_AI đã làm đúng 3/4 tầng, thiếu tầng SSCC (Serial#/box) — đúng phát hiện câu trước. | ✅ Đã trả lời |
+| 80 | Owner cung cấp 6 thông tin: (1) PO đi trước, traveler giao cùng ngày, Pot# do Infasco cấp số; (2) nhân viên kho scan barcode Pot# → tự phân Pieces về máy → sinh Split Form riêng/máy; (3) LOT# từ Infasco đôi khi giao trễ; (4) hậu tố -L/-HT/-A là SẢN PHẨM RIÊNG thật, chỉ lỗi chính tả (thiếu/thừa gạch ngang, vd 06512349AA/06512349-AA) mới gộp; (5) yêu cầu thống kê toàn bộ bảng mã cho Owner duyệt; (6) nguyên tắc MRP — Owner nói PO về là nguyên liệu thật về trong ngày, xử lý liền vì khâu lựa đơn giản. | Xử lý từng phần: (1)(2)(3) giải thích lại quy trình nhận hàng thật (khớp gốc rễ TRAVELERRECEIVED — đang chờ Infasco cấp LOT#); (4) **QUYẾT ĐỊNH DỨT ĐIỂM câu hỏi lớn nhất** — sửa `partControl.ts`: bỏ hẳn "bỏ hậu tố dò gần đúng", chỉ giữ chuẩn hóa dấu gạch ngang thuần túy; đo lại tác động thật: 36/39 Part# (92%) giờ đúng là "thiếu", tăng từ 3 (do trước đó sai lầm coi 33 mã là gần đúng); (5) viết `BANG_MA_CAN_OWNER_DUYET.md` — 7 mục: Part# thiếu (36 mã kèm số traveler dùng), hậu tố quan sát được, mã máy, mã nhân viên, mã thiết bị QC (chưa có), quy ước LOT, Serial#/SSCC; (6) ghi nhận, hạ độ ưu tiên lo ngại "vi phạm MRP" trong lộ trình vì Owner xác nhận PO/nguyên liệu thật về gần như cùng lúc. | ✅ Đã làm xong — code sửa, build+lint pass, server restart; đã viết tài liệu mới `BANG_MA_CAN_OWNER_DUYET.md` |
+
+---
+*PHẦN 5 — phát hiện lớn nhất: hậu tố Part# CHÍNH THỨC xác nhận là sản phẩm
+khác nhau (không phải suy đoán nữa) — đã sửa code ngay theo hướng an toàn
+hơn (bắt buộc khớp đúng, chỉ gộp lỗi định dạng gạch ngang). Hệ quả: 36 Part#
+đang hoạt động cần Owner bổ sung Quantity/box — danh sách đầy đủ trong
+`BANG_MA_CAN_OWNER_DUYET.md` mục 1. Còn 4 mục khác trong file đó (mã máy,
+mã nhân viên, mã QC, ý nghĩa từng hậu tố) vẫn chờ Owner xác nhận.*

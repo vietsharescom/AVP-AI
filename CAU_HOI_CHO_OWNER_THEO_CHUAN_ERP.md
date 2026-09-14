@@ -39,26 +39,26 @@ sao câu hỏi này quan trọng, không phải AI hỏi cho có).
 | `SPLIT FROM TR#{traveler}` | ~3,6% | Ghi chú tách từ traveler khác |
 
 ✅ **Đã sửa code** (`finish-good/confirm/route.ts`, hàm `isLotPlaceholder`) — loại 3 giá trị placeholder trên khỏi so sánh "LOT có đổi khác thường không", tránh báo động giả khi 1 traveler chuyển từ `TRAVELERRECEIVED` sang mã lot thật (chuyện xảy ra ở hơn nửa số dòng, hoàn toàn bình thường).
-| Part# → Quantity/box (PartControl) | Lẽ ra 1:1, thực tế **mơ hồ** | 85% (33/39) Part# đang chạy dựa vào fallback "bỏ hậu tố" | ❌ **CÒN TREO** — nghi hậu tố (`-L`/`-HT`) là 2 sản phẩm khác nhau thật (mạ vs regular), chưa xác nhận |
+| Part# → Quantity/box (PartControl) | **1 : 1 THẬT, mỗi hậu tố = 1 sản phẩm riêng** | ✅ **XÁC NHẬN TỪ OWNER 2026-09-13** | Đã sửa `partControl.ts` — bỏ hẳn fallback "bỏ hậu tố", chỉ giữ chuẩn hóa dấu gạch ngang thuần túy (lỗi chính tả). Hệ quả: 36/39 Part# đang hoạt động (92%) cần bổ sung Quantity/box riêng — danh sách đủ ở `BANG_MA_CAN_OWNER_DUYET.md` mục 1 |
 | Machine/MC# + Ngày + Ca → Traveler | Lẽ ra 1:1 (1 máy/1 lệnh/1 ca), thực tế **N** | 5,66% dữ liệu thật dùng chung 1 MC#+ngày+ca cho ≥2 traveler | ❌ **CÒN TREO (GAP-012)** — chưa rõ là máy chạy nối tiếp bình thường hay lỗi đọc nhầm số máy |
 | (Traveler#, LOT NO.) → PS# | **N : 1** (nhiều traveler/lot gộp vào 1 chuyến xe) | PS 30098 gộp 9 PO khác nhau, PS 30101 gộp 11 PO | PS = 1 chuyến xe xuất hàng, KHÔNG gắn với 1 PO cụ thể |
-| Traveler# → "Work Order" | **1 : 1** (Traveler CHÍNH LÀ WO, không có mã riêng) | Sheet "WORK ORDER" thật (`PACKING SLIPS.xlsm`) không có cột mã WO nào khác Traveler# | "WORK ORDER" chỉ là TÊN sheet/vai trò, không phải 1 trường dữ liệu riêng |
+| Traveler# → LOT NO. → "Work Order" | Traveler# = **1 pot nguyên liệu**; **LOT NO. mới là 1 Work Order thật** | Sheet "WORK ORDER" thật không có cột mã WO riêng — Notes #8 cũ: "mỗi LOT ~ 1 Work Order riêng" | ⚠️ Sửa lại 2026-09-13 — 1 traveler có thể sinh NHIỀU LOT/WO hợp lệ (không phải luôn 1:1 như ghi trước đó) |
+| Traveler# → Serial# (SSCC/box) | **1 : N** (1 label đóng gói → dải serial liên tục, 1 serial/carton) | Nhãn thật: 36 carton ↔ dải serial đúng 36 số liên tiếp (kiểm chứng bằng số học 2 lần) | ❌ **MỚI PHÁT HIỆN, CHƯA đưa vào hệ thống** — đây là mã chuẩn GS1 SSCC, đọc được trên giấy nhưng extraction hiện bỏ qua |
 
 ---
 
 ## A. Master Data (Dữ liệu nền)
 
 **Đã chốt:**
-- Khóa 1:1 tuyệt đối Traveler↔LOT#↔Part#↔Pot# (xác nhận bằng 1.811 dòng dữ liệu thật).
-
-**⚠️ Vừa bị chất vấn lại hôm nay (2026-09-13) — KHÔNG còn là "đã chốt":**
-0. ~~Part# có hậu tố mạ/vật liệu không ảnh hưởng Quantity/box~~ — Owner đặt lại nghi vấn: hậu tố (`-L`, `-HT`, `-A`...) có thể là ký hiệu **2 loại sản phẩm khác nhau thật sự** (vít có phủ mạ vs. regular), không phải chỉ là biến thể vô hại. Tra PartControl thật: **85% Part# đang hoạt động (33/39) chỉ khớp được nhờ cơ chế "bỏ hậu tố dò gần đúng"** trong `partControl.ts` — không phải vài trường hợp lẻ. PartControl hiện không có cột mô tả/loại mạ nào để tự xác minh. Owner chọn: "chưa quyết định, cần hỏi Infasco/xem tài liệu kỹ thuật trước" — **CHƯA đổi code**.
+- Khóa 1:1 tuyệt đối Traveler↔LOT#↔Part#↔Pot# (trong phạm vi hợp lệ — xem Bảng quan hệ ở trên cho các giới hạn theo thời gian/WO).
+- ✅ **Xác nhận từ Owner 2026-09-13**: hậu tố Part# (`-L`/`-HT`/`-A`...) là **sản phẩm khác nhau thật**, không phải biến thể vô hại. Chỉ lỗi chính tả (thiếu/thừa dấu gạch ngang, vd `06512349AA`/`06512349-AA`) mới được gộp. Đã sửa `partControl.ts` theo đúng hướng này.
 
 **Còn thiếu:**
-1. **PartControl thiếu Quantity/box cho 21 Part#** (GAP-007) — không tính được QUANTITY cho các Part# này.
-2. **Bảng quy ước cho field dạng enum** (Shift, Machine, Operator code) — biết nguồn thật có sẵn (sheet `Status` trong `PACKING SLIPS.xlsm`, 25 mã máy hợp lệ) nhưng chưa lấy về dùng để validate OCR.
-3. **MC# là gì về bản chất** — 1 máy vật lý độc quyền, hay 1 trạm dùng chung nhiều traveler/ca? (GAP-012 — 5,66% dữ liệu thật cho thấy dùng chung, chưa rõ là bình thường hay lỗi).
-4. **Ý nghĩa thật của hậu tố Part#** (mục 0 ở trên) — cần xác nhận với Infasco trước khi quyết định giữ cơ chế "bỏ hậu tố" hay bắt buộc từng hậu tố là 1 Part# riêng (ảnh hưởng 85% Part# đang chạy, xem chi tiết `Notes.md` #61-62).
+1. **36 Part# đang hoạt động cần bổ sung Quantity/box riêng** (tăng từ con số cũ 21/160 vì trước đó tính sai nhờ fallback) — danh sách đầy đủ kèm số traveler dùng ở `BANG_MA_CAN_OWNER_DUYET.md` mục 1.
+2. **Ý nghĩa TỪNG loại hậu tố** (`-L`, `-HT`, `-A`, `-T`, `-B`, `-X`, `-MY-AK`, `-CA-IN`...) — biết là sản phẩm khác nhau rồi, nhưng chưa biết mỗi ký hiệu cụ thể nghĩa là gì (`BANG_MA_CAN_OWNER_DUYET.md` mục 2).
+3. **Bảng quy ước cho field dạng enum** (Shift, Machine, Operator code) — biết nguồn thật có sẵn (sheet `Status` trong `PACKING SLIPS.xlsm`, 25 mã máy hợp lệ) nhưng chưa lấy về dùng để validate OCR. Danh sách mã nhân viên quan sát được (chưa chính thức) ở `BANG_MA_CAN_OWNER_DUYET.md` mục 4.
+4. **MC# là gì về bản chất** — 1 máy vật lý độc quyền, hay 1 trạm dùng chung nhiều traveler/ca? (GAP-012 — 5,66% dữ liệu thật cho thấy dùng chung, chưa rõ là bình thường hay lỗi).
+5. **Mã thiết bị QC** (máy đo Hardness/Tensile/Proof Load) — Split Form không có ô mã máy cho khu FINAL INSPECTION (khác Sorting Results có "Sorting M/C#") — chưa biết phòng QC có đánh số riêng không.
 
 **Vì sao ERP chuẩn cần cái này:** Master data (Item Master, Work Center Master, Resource Master) là nền cho MỌI phép tính khác — thiếu 1 Part# hoặc hiểu sai 1 mã máy sẽ làm sai lệch toàn bộ báo cáo hiệu suất/giá thành phía sau, không sửa được bằng logic nghiệp vụ.
 
@@ -190,16 +190,18 @@ Ví dụ: Infasco báo lô Part# X có vài con lỗi ren. AVP cần trả lời
 
 | # | Câu hỏi | Khối | Vì sao ưu tiên | Ví dụ dễ hiểu |
 |---|---|---|---|---|
-| 1 | Hậu tố Part# (`-L`, `-HT`, `-A`...) có phải là 2 loại sản phẩm khác nhau thật (mạ vs. regular), hay chỉ là biến thể vô hại như đang giả định? | A | **Ảnh hưởng 85% Part# đang hoạt động thật** (33/39, đo trực tiếp trên RawMaterial) — cao nhất trong mọi câu hỏi | `11546437-MY-AK-L` không có trong PartControl → hệ thống tự bỏ `-L`, dùng số của `11546437-MY-AK`. Nếu `-L` thật ra là "có phủ mạ" (khác quy cách với bản không mạ), số Quantity/box đang dùng có thể sai cho toàn bộ 33 Part# kiểu này. |
+| ~~✅~~ | ~~Hậu tố Part# là 2 sản phẩm khác nhau hay biến thể vô hại?~~ | A | **ĐÃ CHỐT 2026-09-13** — Owner xác nhận là sản phẩm khác nhau thật (lý do cụ thể mỗi hậu tố CHƯA xác nhận — không phải mạ/không mạ), đã sửa code. Việc còn lại: bổ sung Quantity/box cho 36 Part# — xem `BANG_MA_CAN_OWNER_DUYET.md` mục 1 | `11546437-MY-AK-L` giờ báo đúng "thiếu trong PartControl", không còn tự động mượn số của `11546437-MY-AK` nữa. |
+| 1 | Ý nghĩa CỤ THỂ từng hậu tố Part# (`-L`, `-HT`, `-A`, `-T`, `-B`, `-X`...) là gì? | A | Biết là sản phẩm khác nhau rồi, nhưng chưa biết mỗi ký hiệu nghĩa gì — cần để mô tả đúng khi bổ sung 36 Part# thiếu | Xem danh sách đủ ở `BANG_MA_CAN_OWNER_DUYET.md` mục 2 |
 | 2 | Ô nào trên Split Form là số nhận kho THẬT — Pieces hay Box QTY? ("SL=PLT" là gì?) | C | Chặn toàn bộ việc sửa lại công thức đối chiếu khâu 2 | Phiếu traveler 717365: ô "Pieces" để trống, ô "Box QTY" ghi 31.000 — không biết lấy số nào để so với số email dự báo. |
-| 3 | Đồng ý hồi sinh tab `Warehouse` để ghi nhận "đã về kho thật" không? | C | Quyết định kiến trúc, ảnh hưởng nhiều code | Giống như trong Sheet đã có sẵn 1 quyển sổ tên "Warehouse" để ghi "hàng về ngày nào, bao nhiêu" — nhưng từ lúc redesign, không ai viết vào sổ đó nữa, mọi thứ ghi thẳng vào sổ "dự báo email" (RawMaterial) luôn. |
+| 3 | Đồng ý hồi sinh tab `Warehouse` để ghi nhận "đã về kho thật" không? | C | Quyết định kiến trúc, ảnh hưởng nhiều code (đã hạ độ khẩn cấp vì Owner xác nhận PO/nguyên liệu về gần như cùng ngày) | Giống như trong Sheet đã có sẵn 1 quyển sổ tên "Warehouse" để ghi "hàng về ngày nào, bao nhiêu" — nhưng từ lúc redesign, không ai viết vào sổ đó nữa, mọi thứ ghi thẳng vào sổ "dự báo email" (RawMaterial) luôn. |
 | 4 | Traveler 717671 — có chứng từ giấy gốc để đối chiếu không? | F | Quyết định có phải sửa/xóa dữ liệu thật trong Sheet | 1 traveler nhưng có 2 dòng thành phẩm với LOT# gần giống nhau (`6-253-13-A` và `6-251-13-A`, lệch đúng 1 số) — giống lỗi gõ nhầm, nhưng không có tờ giấy gốc để chứng minh chắc. |
 | 5 | MC# là máy độc quyền hay trạm dùng chung? | A | Ảnh hưởng độ tin cậy cảnh báo "trùng máy" đang chạy | Máy MC#078, cùng ngày cùng ca, nhưng lại thấy gắn với 2 traveler khác nhau — không biết đây là 1 máy chạy nối tiếp 2 lệnh (bình thường) hay do nhân viên đọc/ghi nhầm số máy (lỗi thật). |
 | 6 | finishedPartNo hay partNo (đầu form) — cái nào ưu tiên dùng thật? | A/F | Owner nói sẽ hỏi Infasco — chưa có trả lời | Cùng 1 traveler: đầu phiếu ghi Part# `11549170-L`, nhưng sticker đóng gói lại in Finished Part# khác — chưa biết Packing List cuối cùng nên lấy theo số nào. |
 | 7 | Có cần chặn cứng thứ tự khâu 2→3 không (GAP-009)? | D | Ảnh hưởng UX, chưa gấp | Hiện nhân viên có thể quét lưu Finish Good (khâu 3) cho 1 traveler dù traveler đó CHƯA từng được xác nhận ở khâu 2 (Kho) — hệ thống không cảnh báo gì, cứ cho lưu bình thường. |
 | 8 | Nút chụp Split Form (nhận kho) đặt ở khâu 2 hay dùng chung khâu 3? | C | Chỉ code được sau khi trả lời câu 2-3 | Hiện nút "Chụp Split Form" chỉ có trong khâu 3 (Scan/Finish Good) — nhân viên kho lúc hàng vừa về phải mở đúng trang "đóng gói thành phẩm" để chụp, dù việc này thuộc khâu 2 (nhận nguyên liệu) về mặt nghiệp vụ. |
 | 9 | File `.xlsm` mẫu thật của Split Form điện tử (nếu có) | E | Để làm đường nhập file, không bắt buộc ngay | Giống như file `DAILY LOG CHECK SHEET.xlsm` đã có để xây đường nhập Excel cho khâu 3 — cần 1 file tương tự nhưng là bản điện tử của Split Form, để không phải đoán mò cấu trúc cột khi làm đường nhập. |
-| 10 | 21 Part# thiếu Quantity/box trong PartControl — ai điền? | A | Chặn tính QUANTITY cho các Part# này | Part# đó có trong danh sách PartControl nhưng ô "Quantity/box" bị bỏ trống — khi hệ thống tính QUANTITY = Box × Quantity/box sẽ ra 0, làm sai số trên Packing List cho đúng Part# đó. |
+| 10 | Đọc thêm Serial#/SSCC (mã từng box) vào hệ thống? | F | Mới phát hiện — hoàn thiện chuỗi truy vết tới mức box, chuẩn GS1 | Nhãn đóng gói thật đã in sẵn dải serial (vd 36 số liên tiếp cho đúng 36 carton) — chỉ cần đọc thêm, không cần thiết bị mới |
+| 11 | 36 Part# đang hoạt động thiếu Quantity/box — ai điền? | A | Chặn tính QUANTITY cho các Part# này (tăng từ 21 vì sửa lại cách khớp) | Xem danh sách đủ + số traveler dùng ở `BANG_MA_CAN_OWNER_DUYET.md` mục 1 |
 
 ---
 
@@ -246,4 +248,14 @@ trên giả định chưa xác minh).*
 xếp lại theo khối ERP chuẩn để dễ làm việc với Owner theo từng mảng thay vì
 theo trình tự thời gian hỏi. Lộ trình cải tiến ở trên đồng bộ với
 `ARCHITECTURE.md` mục 8.4/8.5 (đã viết trước đó) — mở rộng thêm phần Goods
-Receipt/Master Data phát hiện hôm nay.*
+Receipt/Master Data phát hiện hôm nay. Xem thêm `BANG_MA_CAN_OWNER_DUYET.md`
+— danh sách chi tiết từng mã (Part#, máy, nhân viên, LOT, Serial#) cần
+Owner rà soát/bổ sung, tách riêng khỏi tài liệu này vì là việc làm dần,
+không phải câu hỏi thiết kế.
+
+**Cập nhật 2026-09-13 (sau khi Owner cung cấp thông tin trực tiếp)**: PO đi
+trước qua email, nguyên liệu thật về **cùng ngày** (không có độ trễ đáng kể
+như lo ngại ban đầu ở khối C/D) — hạ độ khẩn cấp phần "cổng chặn Work Order"
+trong lộ trình. Quy trình nhận hàng thật: nhân viên kho scan barcode Pot#
+→ tự động phân Pieces về máy → sinh Split Form riêng cho máy đó — đây là
+chi tiết cần nắm khi thiết kế lại bước Goods Receipt (khối C).*

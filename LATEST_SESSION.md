@@ -15,7 +15,7 @@
 | Session | SES-20260914-001 (phiên rất dài, nhiều hạng mục lớn) |
 | Ngày | 2026-09-14 |
 | Chủ dự án | Andy Phan (Viet), Maple Leaf Group |
-| Git | **CHƯA commit/push** — rất nhiều thay đổi code (`webapp/`) trong phiên này vẫn ở dạng working tree, Andy chưa xác nhận commit. Không tự ý commit. |
+| Git | **Đã commit + push** (xác nhận 2026-09-14, phiên chat sau). Repo gốc: `HEAD=3db36a9`, khớp `origin/main`. Repo `webapp`: `HEAD=74f988e`, vẫn KHÔNG có remote riêng (GAP cũ, chưa giải quyết) nên chỉ tồn tại local. |
 | Trạng thái server | `localhost:3000` chạy `npm run start`, đã rebuild+restart rất nhiều lần trong phiên (mỗi lần sửa code), lần cuối verify 200 OK. |
 | Link demo | https://petition-humanity-const-item.trycloudflare.com (tunnel cũ `bumper-thomson-...` đã chết giữa phiên, đã khởi động lại tunnel mới — link đổi, sẽ đổi tiếp nếu tunnel/máy restart) |
 

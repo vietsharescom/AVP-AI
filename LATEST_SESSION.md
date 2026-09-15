@@ -17,6 +17,7 @@
 | Chủ dự án | Andy Phan (Viet), Maple Leaf Group |
 | Git | **CHƯA commit/push** — nhiều thay đổi thật trong `webapp/`, `Report/`, `Data/`, `LATEST_SESSION.md`, `THIET_KE_HE_THONG_MOI.md`. **Lưu ý riêng**: `git status` cho thấy Andy cũng đang tự sửa tay song song (xoá/di chuyển nhiều file cũ trong `Data/` sang cấu trúc thư mục mới `Data/1.PO/`, `Data/2. Good receives/`... và tự sửa `Report/BAO_CAO_TONG_HOP_AVP.md`) — **AI không đụng vào các thay đổi đó**, cần Andy tự rà lại `git status` trước khi commit chung. |
 | Trạng thái server | `localhost:3000` chạy `npm run start`, đã rebuild+restart nhiều lần (thêm tính năng picker + sửa lỗi ngày), lần cuối verify 200 OK |
+| Link demo | https://cloudy-edt-configured-greene.trycloudflare.com (link cũ `petition-humanity-const-item...` đã chết giữa phiên, đã khởi động lại tunnel — link đổi, sẽ đổi tiếp nếu tunnel/máy restart) |
 
 ---
 
@@ -145,6 +146,59 @@ Andy gửi `Data/AVP Operations Flow Chart 2022 working file map added.pdf`
   thoại, Andy chưa quyết định có muốn tách thành 1 báo cáo "SOP 2020 vs
   Thực tế 2026" riêng hay gộp vào báo cáo đã có.
 
+### 2.8 Tiếp tục phiên (sau khi context bị nén lại) — thiết kế tài liệu thuần, KHÔNG code, theo đúng quyết định Andy chọn ("Chỉ viết lại tài liệu thiết kế, chưa code")
+
+Khởi động lại tunnel cloudflared (link cũ chết, xem link mới ở mục 1).
+Đọc thêm nhiều file thật trong `Data/` (Work Station log 30 trang, Operator
+sheet, Productivity/Operation Hour, Partial Boxes 2026.xlsx, TRAVELER
+SHEETS-pages-5.pdf, `DAILY LOG CHECK SHEET.xlsm` — sheet CHECKING SUMMARY/
+WORK ORDER/SHIPPED, `Labelling SEP 15.pdf` = FINISHED PALLETS ARCHIVE 50
+trang, `WRAPPING SUMMARY-SEP 15.pdf`, `SCANNING SHEET-2.pdf`) — thêm liền
+**Phần 7-13** vào [`THIET_KE_HE_THONG_MOI.md`](THIET_KE_HE_THONG_MOI.md):
+
+- **Phần 7**: kiến trúc phân lớp cập nhật — điểm "in label" (khâu 5) thực
+  chất là điểm nhập KẾT QUẢ sản xuất (Quantity/Lot/Skid/Serial#), vẽ lại
+  Lớp 1 Capture thành 2 nhánh song song (Traveler giấy vs Excel Label) đối
+  chiếu chéo thay vì tin 1 nguồn.
+- **Phần 8 — đính chính lớn**: GAP-015 (Goods Receipt/cân nguyên liệu đầu
+  vào) **RÚT KHỎI danh sách việc cần làm** — Andy xác nhận AVP ăn công
+  theo **Pot#** (không theo kg), nên không cân đầu vào là ĐÚNG mô hình
+  kinh doanh, không phải thiếu sót. Số lượng chính thức nằm ở sensor máy
+  lựa (khâu 3), không phải cân lúc nhận.
+- **Phần 9-11**: đặc tả 3 tính năng — OEE theo Máy×Ca×Part# (Input=Traveler
+  gán Bin, Output=sensor thật), năng suất lao động/người (sản lượng và $,
+  dùng số người đếm THẬT từ Operator sheet mỗi ngày, không giả định cố
+  định), hao hụt (pcs) theo từng máy (RawMaterial trừ Work Station log,
+  theo khoá Traveler#+Máy+Bin — giải quyết đúng điểm nghẽn "không tách
+  được theo mẻ" đã đo ở báo cáo trước).
+  - Mục 10.4: đính chính cột "Rate" trên Operator sheet — **tất cả người
+    (kể cả trông máy) đều ghi "General Labour" cùng 1 mức**, không có mức
+    lương riêng cho vận hành máy như Andy nêu ban đầu ($30/$28) — nguồn
+    thật của 2 mức đó **chưa xác định được**, cần Andy xác nhận.
+- **Phần 12**: chốt phạm vi — gộp Phần 9-11 thành 1 **module riêng "Nhân
+  công & Năng suất"**, không gắn Dashboard, không có CCP/nút duyệt (chỉ
+  xem/phân tích), triển khai theo 3 giai đoạn (LaborLog → ghép FinishGood
+  gần đúng → MachineLog chính xác).
+- **Phần 13 — đề bài cụ thể**: sau khi đọc thật `WRAPPING SUMMARY`/
+  `SCANNING SHEET` (xác nhận Scanning và Wrapping là **CÙNG 1 form**, dữ
+  liệu tự động từ máy Label, KHÔNG phải gõ tay lại) — tìm ra điểm nghẽn
+  thời gian THẬT: không phải 3 khâu đầu (đã nhanh/tự động), mà là (1) báo
+  cáo bị in giấy rồi tích tay ✓ lại dù số đã đúng sẵn, và (2) trạng thái
+  SHIPPED lệch 43% giữa 2 sổ song song (đã đo ở báo cáo trước) — không ai
+  biết tin sổ nào trước khi lập Packing Slip. Đề xuất module đối chiếu
+  Traveler# qua 4 nguồn có sẵn, chặn cứng trước khi lập PS nếu thiếu
+  Quantity/còn HOLD/lệch trạng thái — **không cần sửa cấu trúc form gốc
+  nào**, chỉ cần đọc đúng 2 sheet đã có sẵn (CHECKING SUMMARY + SHIPPED)
+  và xin file Excel gốc máy Label thay vì đọc bản PDF in ra.
+
+**Tự sửa 2 suy luận sai trong lúc phân tích** (đã ghi lại để không lặp):
+đọc nhầm "TB9-INF MV" (khách Marieville, sản lượng nhỏ) làm đại diện cho
+bàn tay Infasco thật (TB1-5-INF) lúc tính năng suất/người — đã sửa lại
+đúng nguồn khi Andy gửi ảnh chụp rõ (`3.jpg`).
+
+**Toàn bộ mục này là tài liệu, CHƯA đụng code webapp** — đúng phạm vi Andy
+đã chọn tường minh trong phiên.
+
 ---
 
 ## 3. TRẠNG THÁI HIỆN TẠI & GAP MỚI/CÒN MỞ
@@ -179,6 +233,21 @@ Andy gửi `Data/AVP Operations Flow Chart 2022 working file map added.pdf`
   vẻ Andy tự mở/lưu/export song song. AI không rõ nội dung các file `_f`
   này có khác bản `.md` gốc không — **cần Andy xác nhận bản nào là bản
   cuối** trước khi dùng để trình Owner, tránh 2 bên cầm 2 bản khác nhau.
+- **File Excel gốc máy Label (khâu 5) — Andy nói sẽ gửi vào
+  `Data/5.Labeling`, VẪN CHƯA nhận được** — hiện chỉ có bản PDF in ra
+  (`Labelling SEP 15.pdf`), đủ để đọc hiểu cấu trúc nhưng không nên dùng
+  làm nguồn ingest thật (rủi ro OCR/chữ dính) — chờ file Excel thật trước
+  khi code Phần 7/13.
+- **Nguồn thật của đơn giá $30 (vận hành máy)/$28 (phụ máy)** Andy nêu
+  ban đầu — đối chiếu với Operator sheet thật thì mọi người (kể cả trông
+  máy) đều ghi "General Labour" cùng 1 mức, **KHÔNG khớp** 2 số Andy nêu —
+  chưa rõ 2 mức đó áp dụng cho ai/nguồn nào, cần Andy xác nhận trước khi
+  tính lại chi phí/đơn vị sản phẩm chính xác.
+- **PHẦN 9-13 (OEE, năng suất/người, hao hụt theo máy, module đối chiếu
+  trạng thái trước PS) — mới là ĐẶC TẢ, CHƯA code gì** — Andy đã xác nhận
+  phạm vi (module riêng "Nhân công & Năng suất", 3 giai đoạn) nhưng
+  **chưa xác nhận bắt đầu từ giai đoạn nào**, và Phần 13 (đối chiếu PS)
+  cũng mới là đề bài, chưa triển khai.
 
 ---
 
@@ -196,6 +265,12 @@ Andy gửi `Data/AVP Operations Flow Chart 2022 working file map added.pdf`
    riêng không, hay gộp vào báo cáo đã có.
 6. Sau khi họp Owner xong — quay lại làm rõ cấu trúc `Data/` mới Andy đang
    tự sắp xếp, cập nhật lại tài liệu nếu đường dẫn cũ đổi.
+7. Nhận file Excel gốc máy Label (khâu 5) từ Andy → mới bắt đầu code Phần
+   7/13 (đối chiếu 2 nhánh Capture, module đối chiếu trạng thái trước PS).
+8. Andy xác nhận: bắt đầu Giai đoạn nào của module "Nhân công & Năng
+   suất" (Phần 12) — GĐ1 (LaborLog, an toàn) hay gộp GĐ1+2 luôn.
+9. Andy xác nhận nguồn thật đơn giá $30/$28 (vận hành/phụ máy) — không
+   khớp với cột Rate thật trên Operator sheet (toàn "General Labour").
 
 ### Cảnh báo cho phiên sau
 - ⚠ **Toàn bộ thay đổi phiên này CHƯA commit/push** — rất nhiều file mới/

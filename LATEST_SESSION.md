@@ -1,11 +1,225 @@
 # SESSION REPORT
-## SES-20260915-001 — AVP Packing Flow (mới nhất, đọc mục này trước)
+## SES-20260915-002 — AVP Packing Flow (mới nhất, đọc mục này trước)
 
-> Phiên này bắt đầu SAU khi SES-20260914-001 (bên dưới) đã đóng và
-> commit+push. Nội dung SES-20260914-001 vẫn giữ nguyên bên dưới làm lịch
-> sử — không xóa, chỉ nối tiếp lên trên theo đúng quy ước "AI không có trí
-> nhớ giữa các phiên — session report thay thế trí nhớ đó".
+> Phiên này bắt đầu SAU khi SES-20260915-001 (bên dưới) đã đóng và
+> commit+push (`a2655ad`). Nội dung SES-20260915-001 vẫn giữ nguyên bên
+> dưới làm lịch sử — không xóa, chỉ nối tiếp lên trên theo đúng quy ước
+> "AI không có trí nhớ giữa các phiên — session report thay thế trí nhớ
+> đó". Phiên này **chưa commit/push** — xem mục 1 và cảnh báo cuối bài.
 
+---
+
+## 1. THÔNG TIN PHIÊN
+
+| Trường | Giá trị |
+|---|---|
+| Session | SES-20260915-002 (cùng ngày với phiên trước, tiếp tục sau khi đã commit) |
+| Chủ dự án | Andy Phan (Viet), Maple Leaf Group |
+| Git | **CHƯA commit/push** — nhiều thay đổi thật trong `webapp/`, `Report/`, `Data/`, `LATEST_SESSION.md`, `THIET_KE_HE_THONG_MOI.md`. **Lưu ý riêng**: `git status` cho thấy Andy cũng đang tự sửa tay song song (xoá/di chuyển nhiều file cũ trong `Data/` sang cấu trúc thư mục mới `Data/1.PO/`, `Data/2. Good receives/`... và tự sửa `Report/BAO_CAO_TONG_HOP_AVP.md`) — **AI không đụng vào các thay đổi đó**, cần Andy tự rà lại `git status` trước khi commit chung. |
+| Trạng thái server | `localhost:3000` chạy `npm run start`, đã rebuild+restart nhiều lần (thêm tính năng picker + sửa lỗi ngày), lần cuối verify 200 OK |
+
+---
+
+## 2. ĐÃ HOÀN THÀNH TRONG PHIÊN NÀY
+
+### 2.1 Khâu 4 Packing List — thêm "☑ Chọn nhiều từ Kho" (bảng picker checkbox)
+Thay vì gõ từng Traveler# rất chậm, thêm 1 bảng chọn nhiều dòng cùng lúc
+(lọc theo PO/Part#/Traveler/Pot#/Ngày, tick nhiều dòng, thêm 1 lượt vào
+Nháp). Qua 2 vòng sửa lỗi thật:
+- **Bug 1**: dùng Traveler# làm React key → 2 dòng cùng traveler nhưng
+  khác Pot#/LOT# (traveler split hợp lệ) bị dính vị trí cũ khi sort.
+- **Bug 2 (gốc thật)**: đổi sang khoá Traveler#+LOT# vẫn chưa đủ — có
+  dòng **trùng THẬT cả Traveler+LOT** trong sổ cái (chính hệ thống đã tự
+  cảnh báo "bị scan 2 lần — có thể do lưu lặp lúc lỗi mạng"). Sửa dứt
+  điểm: đổi key sang **vị trí dòng gốc trong sổ cái** (ổn định tuyệt đối,
+  không phụ thuộc nội dung) — thêm cột LOT# vào bảng picker để phân biệt.
+- Thêm sort bấm-tiêu-đề-cột (▲/▼) cho mọi cột, mặc định ưu tiên 🔺 lên đầu
+  rồi FIFO theo ngày (giống "Tạo PS tự động").
+- Thêm `src/lib/dateNormalize.ts` — chuẩn hoá 2 định dạng ngày lẫn lộn
+  trong Sheet (ISO thật vs `D/M/YYYY` gõ tay, **Andy xác nhận quy ước
+  D/M/YYYY**) về 1 chuẩn ISO trong `/api/ledger` — sửa luôn 1 bug tiềm ẩn
+  ở FIFO của "Tạo PS tự động" (trước đó so sánh chuỗi ngày lẫn lộn định
+  dạng sai thứ tự thời gian thật).
+
+### 2.2 Sửa dữ liệu thật: 22 traveler bị sót đánh dấu "đã xuất"
+Phát hiện khi điều tra vụ traveler 717544 (tưởng trùng số với PS đã xuất
+30101 — hoá ra là hàng về rồi xuất luôn trong ngày 9/9). Truy ra gốc rễ:
+script nhập lịch sử `import-real-ps-30098-30101.mjs` (phiên trước) chỉ ghi
+vào Sheet `PackingList`, quên đánh `shipped=TRUE` bên RawMaterial/
+FinishGood — vòng qua route `/api/packing-list/approve` duy nhất "biết"
+phải làm việc này. Soát toàn bộ 62 traveler của PS 30098+30101: **22
+traveler bị lỗi này** (19 RM chưa shipped + 3 traveler có `ps="TEST-PS-
+30098"` thay vì `"30098"` thật). Đã viết + chạy
+[`scripts/fix-ps30098-30101-shipped.mjs`](webapp/scripts/fix-ps30098-30101-shipped.mjs)
+(có `--dry-run`, an toàn chạy lại) — sửa xong cả 22, cùng lúc sửa luôn
+Part#/Pot#/LOT# của traveler 717544 (bị AI đọc lệch cột lúc scan, ô Part#
+xuống 2 dòng trên giấy: `Part#=11502717-TH-TC-T`, `Pot#=614`, LOT# để
+trống — theo đúng quyết định Andy đã duyệt).
+
+### 2.3 File mới `Data/Partial Boxes 2026.xlsx` — đối chiếu PartControl
+Andy nhận file quản lý tự lập (theo dõi thùng dở/vít dư, ngoài hệ thống
+chính) — phát hiện 3 sheet tổng hợp (`INVENTORY`/`Inventory1`/`Sheet2`) có
+cột "STANDARD QUANTITY" **khớp đúng 76% (204/269 Part#)** với Quantity/box
+đã có trong PartControl — đủ tin cậy dùng làm nguồn bổ sung. Đã lập
+[`Report/PARTCONTROL_CAP_NHAT_DUYET_2026-09-15.md`](Report/PARTCONTROL_CAP_NHAT_DUYET_2026-09-15.md)
+(+ `.docx`) — bảng duyệt 3 nhóm: **13 Part# thiếu hoàn toàn** + **2 Part#
+trống ô** (đề xuất thêm, rủi ro thấp) và **6 Part# mâu thuẫn** với số đang
+dùng thật (KHÔNG tự sửa, cần đối chiếu giấy gốc — có ô ☐ Đồng ý/Sai/Cần
+xem giấy). **CHƯA ghi gì vào Sheet PartControl** — đang chờ Andy tick
+duyệt nhóm nào.
+
+Tiện thể phát hiện thêm: **54,6% dòng trong file này không ghi Traveler#**
+— không truy ngược được Part#/PO/QC của hàng dư đó — bằng chứng số cho
+đúng lời quản lý mô tả "chất đống không biết mã lot chất lượng".
+
+### 2.4 2 báo cáo lớn cho buổi làm việc với Owner (+ bản tiếng Anh)
+- [`Report/DANH_GIA_KIEN_TRUC_HE_THONG_2026-09-15.md`](Report/DANH_GIA_KIEN_TRUC_HE_THONG_2026-09-15.md)
+  (+ `_EN.md`, + `.docx` cả 2 bản) — đánh giá kiến trúc webapp: quét lỗi
+  "lệch cell" mới (7 dòng FinishGood có Pot#=LOT# giống hệt nhau, tạo lúc
+  `2026-09-14T21:06:05`, cột `oc` trống — **CHƯA xác định được nguồn gốc,
+  Andy chưa trả lời**), đối chiếu ERP/Odoo/CCP, sơ đồ kiến trúc kỹ thuật,
+  6 bài học cho dự án mới (đối chiếu với `THIET_KE_HE_THONG_MOI.md` đã có
+  sẵn — chỉ 2/6 bài học thật sự còn thiếu, đã bổ sung thẳng vào file đó
+  **Phần 5**), và **mục 6 xác minh 11 nhận định từ phỏng vấn hiện trường**
+  (quản lý/kế hoạch) bằng số liệu đo được — 8/11 xác nhận rõ, 3 số liệu
+  HOÀN TOÀN MỚI đo trong buổi (chênh sản lượng 6,5%, Partial Boxes 54,6%
+  không Traveler#, qcStatus 98,5% trống).
+- [`Report/BAO_CAO_TRINH_OWNER_QUY_TRINH_2026-09-15.md`](Report/BAO_CAO_TRINH_OWNER_QUY_TRINH_2026-09-15.md)
+  (+ `_EN.md`, + `.docx` cả 2 bản) — bảng 9 bước quy trình (Email PO→Xe
+  rời bến), mỗi bước: hiện tại làm gì / hậu quả+bằng chứng / hướng khắc
+  phục+kết quả, kèm mục riêng "muốn giảm người thì giảm được ở đâu" (chỉ
+  rõ bước nào giảm người được ngay vs bước nào chỉ giảm rủi ro).
+- Số liệu "giờ hao phí/ngày" đã **điều chỉnh lại 2 lần theo yêu cầu Andy**:
+  21-28 giờ (đo gốc 2026-09-14) → thử 53-60 giờ (cộng dồn) → **chốt lại
+  ~32 giờ/ngày** (~7 giờ gõ tay + ~25 giờ dò tìm không hiệu quả), quy năm
+  ~8.000 giờ — đã sửa đồng bộ ở mọi báo cáo + artifact, bỏ hết cách ghi
+  gắn tên cá nhân vào con số theo yêu cầu Andy.
+
+### 2.5 2 trang trực quan (Artifact) — VN + EN
+- VN: https://claude.ai/artifact/Gk54oGWQa8txtGfZkr9Doz
+- EN: https://claude.ai/artifact/6pyE3QVhAEdYctkzBgckDP
+
+Hero stat "0/30 ngày KPI khớp thật", 6 thẻ số liệu sốc, biểu đồ hao phí
+giờ, so sánh độ tin cậy Pot#/LOT#, bằng chứng "hệ thống mới tự bắt lỗi
+nhanh", **Phần 2**: 4 thẻ đối chiếu Infasco vs AVP không ăn nhập (LOT NO.
+không in trên PS, Part# đầu phiếu khác tem cuối, số PS nguồn ngoài AVP,
+hậu tố Part# lệch nội bộ), 7 điểm rối đo bằng số, bảng chỉ tiêu Trước/Sau
+cho hệ thống mới.
+
+### 2.6 Chiến lược thuyết phục Owner + đề xuất ngân sách nội bộ
+Bàn kỹ chiến lược (không bán "ERP/ISO", bán rủi ro đã có sẵn bằng đúng số
+liệu của Owner; demo = đối chứng trực tiếp trên đơn hàng thật, không phải
+trình diễn tính năng; đòn bẩy khách hàng Infasco; đóng khung "bổ trợ kinh
+nghiệm" không phải "thay thế"; rollout thử nghiệm nhỏ không rủi ro).
+Soạn [`Report/EMAIL_GUI_OWNER_2026-09-15.md`](Report/EMAIL_GUI_OWNER_2026-09-15.md)
+(VN + EN, bản ngắn ≤300 chữ) — **CHƯA gửi**, đang chờ Andy duyệt/chỉnh.
+Đề xuất báo giá dạng ngân sách nội bộ (không phải báo giá thương mại) —
+xin theo NGÀY CÔNG không phải tiền, chia đúng 5 giai đoạn đã có sẵn trong
+`BAO_CAO_TONG_HOP_AVP.md`, chỉ xin duyệt Giai đoạn 1 (~3-5 ngày công,
+~0đ chi phí ra tiền vì dùng lại hạ tầng có sẵn).
+
+### 2.7 Phát hiện LỚN cuối phiên — đối chiếu SOP 2020 đã duyệt vs thực tế
+Andy gửi `Data/AVP Operations Flow Chart 2022 working file map added.pdf`
+(26 trang, SOP chính thức **Tam.T ký duyệt** từ 2/2020-9/2020). Đọc hết +
+đối chiếu:
+- SOP đã **THIẾT KẾ SẴN** đúng hạ tầng hiện đại còn thiếu hôm nay: scan
+  Traveler+Cart#+Work Station ngay lúc đưa vào máy (tr.7-8), 4 trạm máy
+  tính chuyên biệt "Daily Service of Computer Terminal" (tr.15, Employee
+  Log-in/Production Tracking/Material Handling/Shipper Station), "Scan
+  bin into scanning system" (tr.10) — **KHÔNG hạ tầng nào trong số này
+  từng được triển khai thật**, đúng khớp mọi gốc rễ đã tìm được hôm nay
+  (62% máy chạy chung, không trace theo mẻ...).
+- Quy trình lập Packing Slip thủ công hiện tại (mở Excel, gõ tay Traveler,
+  đặt tên PS#-Customer, in 2 bản, xin chữ ký tài xế) — **khớp Y HỆT** SOP
+  trang 18 — tức đây KHÔNG phải sự xuống cấp, mà là chính quy trình đã
+  duyệt từ 2020, chưa từng đổi.
+- **3 trang SOP bỏ trống hoàn toàn, không ai viết xong**: "How to Final
+  Audit Skids" (tr.14), "Packaging & final ready for shipment" (tr.21),
+  "Shipment – Customer Pickup" (tr.22) — ngay chính bộ SOP công ty tự làm
+  cũng chưa hoàn thiện đúng 3 bước cuối chuỗi giao hàng.
+- **Ý nghĩa thuyết phục quan trọng nhất**: chứng minh Owner/quản lý (Tam.T)
+  đã tự nghĩ ra và DUYỆT đúng hướng giải pháp hiện đại từ 6 năm trước —
+  vấn đề chưa bao giờ là "không biết", mà là "đã biết, đã duyệt, chưa
+  triển khai được". Đổi hẳn câu mở đầu khi trình bày với Owner.
+- **CHƯA viết thành tài liệu riêng** — mới trình bày trực tiếp trong hội
+  thoại, Andy chưa quyết định có muốn tách thành 1 báo cáo "SOP 2020 vs
+  Thực tế 2026" riêng hay gộp vào báo cáo đã có.
+
+---
+
+## 3. TRẠNG THÁI HIỆN TẠI & GAP MỚI/CÒN MỞ
+
+- **PartControl chưa ghi gì** — bảng duyệt 21 Part# (15 an toàn + 6 mâu
+  thuẫn) đang chờ Andy tick ☐ trong
+  [`PARTCONTROL_CAP_NHAT_DUYET_2026-09-15.docx`](Report/PARTCONTROL_CAP_NHAT_DUYET_2026-09-15.docx).
+- **Nguồn gốc lô dữ liệu lỗi lúc 21:06:05 ngày 2026-09-14 vẫn CHƯA rõ** (7
+  dòng FinishGood Pot#=LOT# giống hệt nhau, `oc` trống, không khớp luồng
+  scan bình thường) — đã hỏi Andy 2 lần, chưa có câu trả lời.
+- **PS 30102 (2 dòng Quantity=0 đã xuất thật) — VẪN CHƯA quyết định** sửa
+  số hay huỷ làm lại — tồn đọng từ SES-20260915-001, dùng làm ví dụ minh
+  hoạ cho email/báo cáo hôm nay nhưng bản thân dữ liệu sai vẫn còn nguyên
+  trong Sheet.
+- **Câu hỏi nguồn Part# ưu tiên (RawMaterial vs FinishGood khi lệch hậu
+  tố) — vẫn tồn đọng**, chưa có quyết định mới.
+- **Email gửi Owner — bản nháp xong (VN+EN), CHƯA gửi** — chờ Andy duyệt/
+  chỉnh trước khi gửi thật (không tự gửi thay).
+- **File nguồn mới nhận, chưa xử lý hết**: `Data/Partial Boxes 2026.xlsx`
+  (đã dùng cho PartControl, còn phần "vít dư 54,6% không Traveler#" mới
+  chỉ ghi nhận, chưa có hướng khắc phục cụ thể) và
+  `Data/AVP Operations Flow Chart 2022 working file map added.pdf` (đã
+  đọc + đối chiếu, chưa viết thành báo cáo riêng — xem mục 2.7).
+- **Andy đang tự tổ chức lại `Data/`** (thư mục `1.PO/`, `2. Good
+  receives/`, `3. Traveler/`... mới xuất hiện, nhiều file cũ trong
+  `Data/Evaluation/` bị xoá/di chuyển) song song lúc AI đang làm việc — AI
+  **không đụng vào** các thay đổi này, cần Andy tự xác nhận lại cấu trúc
+  trước khi ai đó dựa vào đường dẫn cũ.
+- **Nhiều file `Report/*.docx`/`.pdf` xuất hiện ngoài dự kiến của AI**
+  (`BAO_CAO_TRINH_OWNER_QUY_TRINH_2026-09-15_f.docx`, `REPORT FULL
+  PROCESS_AVP_2026-09-15_EN_f.docx`, 2 file PDF xuất từ artifact...) — có
+  vẻ Andy tự mở/lưu/export song song. AI không rõ nội dung các file `_f`
+  này có khác bản `.md` gốc không — **cần Andy xác nhận bản nào là bản
+  cuối** trước khi dùng để trình Owner, tránh 2 bên cầm 2 bản khác nhau.
+
+---
+
+## 4. BẮT ĐẦU PHIÊN SAU TỪ ĐÂY
+
+### Việc ưu tiên tiếp theo
+1. Andy tick duyệt bảng PartControl (21 Part#) → AI ghi đúng phần đã
+   duyệt vào Sheet, không ghi phần chưa duyệt.
+2. Andy trả lời nguồn gốc lô lỗi 21:06:05 (2026-09-14) → vá đúng chỗ,
+   tránh lặp lại.
+3. Quyết định PS 30102 (sửa số hay huỷ) — tồn đọng 2 phiên liền.
+4. Andy xác nhận bản `.docx`/`.pdf` nào là bản cuối để trình Owner (so
+   với các file `_f`/PDF xuất hiện ngoài dự kiến).
+5. Quyết định có tách "SOP 2020 vs Thực tế 2026" (mục 2.7) thành báo cáo
+   riêng không, hay gộp vào báo cáo đã có.
+6. Sau khi họp Owner xong — quay lại làm rõ cấu trúc `Data/` mới Andy đang
+   tự sắp xếp, cập nhật lại tài liệu nếu đường dẫn cũ đổi.
+
+### Cảnh báo cho phiên sau
+- ⚠ **Toàn bộ thay đổi phiên này CHƯA commit/push** — rất nhiều file mới/
+  sửa (`webapp/src/lib/dateNormalize.ts`, `PackingListSection.tsx`,
+  `ledger/route.ts`, `scripts/fix-ps30098-30101-shipped.mjs`, toàn bộ
+  `Report/*2026-09-15*`, `LATEST_SESSION.md`, `THIET_KE_HE_THONG_MOI.md`)
+  — cần Andy xác nhận trước khi commit, đúng nguyên tắc toàn cục.
+- ⚠ `git status` lẫn cả thay đổi CỦA ANDY (di chuyển `Data/`, sửa
+  `BAO_CAO_TONG_HOP_AVP.md`) — khi commit cần tách rõ AI làm gì/Andy làm
+  gì trong message, không gộp mù mờ.
+- ⚠ Video `Video_2026-09-14_165050.wmv` (112MB) vẫn chưa commit — vẫn cần
+  hỏi Andy trước khi quyết định đưa vào repo hay lưu chỗ khác (tồn đọng
+  nhiều phiên).
+- ⚠ Con số "giờ hao phí/ngày" (~32 giờ) là **ước tính đã điều chỉnh theo
+  quan sát thực tế của Andy, CHƯA đo lại bằng bấm giờ thật** — nếu phiên
+  sau có số đo thật, phải cập nhật lại đồng bộ ở TẤT CẢ báo cáo + 2
+  artifact, không chỉ 1 chỗ.
+
+---
+
+*Session Report SES-20260915-002 — cập nhật lần cuối 2026-09-15, CHƯA
+commit/push, đang chờ Andy xác nhận nhiều quyết định mở (xem mục 3).*
+
+---
 ---
 
 ## 1. THÔNG TIN PHIÊN

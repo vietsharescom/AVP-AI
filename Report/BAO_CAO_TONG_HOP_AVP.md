@@ -324,6 +324,19 @@ Mỗi carton có 1 số serial liên tục (vd `...19929` → `...19964` cho đ�
 
 ---
 
+## 8. GHI CHÚ ĐỀ XUẤT UX — KHÂU 4 PACKING LIST (ghi nhận 2026-09-15, chưa code)
+
+Andy: "khi chọn traveler, click vào thì hiển thị ra các traveler hiện đạt
+chất lượng, chỉ chọn tick cho nhanh" — ô "+ Thêm dòng theo Traveler#"
+hiện tại bắt gõ đúng số traveler; đề xuất thêm 1 chế độ **gợi ý danh sách
+traveler đang đạt chất lượng (PASS/Concession, chưa xuất)** ngay khi bấm
+vào ô đó, để chọn bằng cách tick thay vì phải nhớ/gõ đúng số — giống cách
+"⚡ Tạo PS tự động" đã lọc sẵn, nhưng cho phép chọn TỪNG traveler một thay
+vì lấy hết cùng lúc. Chưa code trong phiên này — ghi lại làm việc ưu tiên
+phiên sau nếu Owner đồng ý hướng này.
+
+---
+
 ## KẾT LUẬN
 
 1. **Không phải "làm chưa tới" mà là "nhiều nơi tự làm, không ai đồng

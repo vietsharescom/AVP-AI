@@ -2,3 +2,5 @@
 .env.local
 *.env
 client_secret_*.json
+*.wmv
+~$*.docx

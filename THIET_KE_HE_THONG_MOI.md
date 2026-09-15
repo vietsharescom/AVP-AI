@@ -142,3 +142,62 @@ bỏ qua con người (xem cột "Điểm CCP").
 minh/thuyết phục trước khi quyết định đầu tư xây dựng. Xem file đi kèm
 `BAO_CAO_DANH_GIA_HE_THONG.md` cho phần đánh giá hiện trạng (bằng chứng lỗi
 thật) làm căn cứ so sánh.*
+
+---
+
+## PHẦN 5 — CẬP NHẬT 2026-09-15 (bổ sung từ 2 ngày vận hành thật sau khi viết tài liệu này)
+
+*Nguồn: [`Report/DANH_GIA_KIEN_TRUC_HE_THONG_2026-09-15.md`](Report/DANH_GIA_KIEN_TRUC_HE_THONG_2026-09-15.md)
+— quét trực tiếp dữ liệu sống (RawMaterial 1.939 dòng, FinishGood 194 dòng,
+`/api/ledger` 184 dòng) 2 ngày sau khi Phần 1-4 ở trên được viết. 2 điểm
+dưới đây là phần THẬT SỰ CÒN THIẾU so với thiết kế ở Phần 1-4 (không lặp
+lại nội dung đã có — sổ cái bất biến/CCP/AI-chỉ-ở-lớp-1 đã thiết kế đúng
+ở Phần 3, được xác nhận thêm bằng 2 sự cố thật bên dưới).*
+
+### 5.1 Bổ sung quy trình bắt buộc: đo phân bố giá trị thật TRƯỚC khi khoá field
+
+Chưa có ở Phần 1-4. Kinh nghiệm AVP_AI: gần như MỌI giả định ban đầu về ý
+nghĩa 1 trường đều sai khi đo trên dữ liệu thật — `SHIPPED="0"` tưởng "đã
+xuất" thực ra là "chưa xuất" (loại sạch 1.811/1.812 dòng); hậu tố Part#
+tưởng "biến thể vô hại" thực ra "sản phẩm khác nhau thật"; LOT NO. tưởng
+luôn là mã lot, đo ra 59% là chữ trạng thái; Pot# tưởng khoá 1:1 vĩnh
+viễn, đo ra tái sử dụng 41,1%. **Quy tắc bổ sung cho dự án mới**: mỗi
+field trong Lớp 3 (Ledger) — trước khi khoá kiểu dữ liệu/ràng buộc unique
+— phải chạy 1 script đo phân bố giá trị thật trên toàn bộ dữ liệu lịch
+sử đang có (giống cách đã đo Pot#/LOT NO./SHIPPED ở AVP_AI), không suy
+diễn từ tên cột.
+
+### 5.2 Bổ sung vào Lớp 1→2: bước "chuẩn hoá định dạng" + quét sức khoẻ dữ liệu định kỳ
+
+Phần 3 đã tách Lớp 1 (Capture, AI chạy ở đây) và Lớp 2 (Core Rule Engine,
+tất định) — đúng hướng, nhưng chưa nói rõ 1 bước RIÊNG ở giữa 2 lớp này:
+**làm sạch/validate ĐỊNH DẠNG** (cắt tiền tố nhãn kiểu "Pot#"/"Lot" dính
+vào giá trị, chặn độ dài/ký tự bất thường) TRƯỚC KHI Lớp 2 chạy các quy
+tắc NGHIỆP VỤ. Bằng chứng thật (2026-09-15, AVP_AI): traveler 718643 bị
+lưu `Pot#="Pot#313"` (nguyên cả nhãn), traveler 717544 bị lệch cả
+Part#/Pot#/LOT# do 1 ô xuống 2 dòng trên giấy — cả 2 lọt qua vì hệ thống
+hiện tại CHỈ có kiểm tra nghiệp vụ (đối chiếu RawMaterial, PartControl),
+không có bước kiểm tra định dạng thuần tuý.
+
+Thêm nữa: cần **1 job quét định kỳ chạy lại trên TOÀN BỘ dữ liệu đã lưu**
+(không chỉ dòng mới) — 7 dòng FinishGood bị lỗi thật (Pot#=LOT# giống hệt
+nhau, traveler 717397/718437/717772/717781/718646/718016/718014, cùng
+tạo lúc `2026-09-14T21:06:05`, nguồn gốc **chưa xác định**) đã nằm im
+trong Sheet cho tới khi tình cờ bị phát hiện hôm nay — không có cơ chế
+nào tự báo nếu không có ai chủ động đi tìm.
+
+### 5.3 Bằng chứng thật mới, củng cố thiết kế đã có (không cần đổi gì)
+
+- **Sổ cái bất biến (§8.1) là cần thiết, không phải lý thuyết suông**:
+  traveler 717544 hôm nay xuất hiện cả ở PS đã xuất (30101, ngày 9/9) và
+  RawMaterial "mới về" (cũng ngày 9/9) — nhìn như trùng/lỗi, hoá ra là
+  nhận rồi xuất ngay trong ngày. Với mô hình `stage` hiện tại (Phần 1),
+  tình huống này dễ gây hiểu lầm; với sổ cái bút toán độc lập (mỗi lần
+  nhận/xuất là 1 dòng có mốc thời gian riêng) thì tự nhiên rõ ràng, không
+  cần suy luận thêm.
+- **"Chỉ 1 đường ghi hợp lệ" (§8.3) là đúng, đã bị vi phạm 1 lần thật**:
+  script nhập lịch sử PS 30098/30101 (chạy ở AVP_AI hiện tại) ghi thẳng
+  vào Sheet, đi vòng qua hàm duyệt PS duy nhất — sinh ra 22 traveler bị
+  sót đánh dấu đã xuất (đã sửa xong 2026-09-15). Dự án mới cần enforce
+  điều này bằng CODE (vd migration/import script cũng phải gọi đúng hàm
+  Lớp 2, không được ghi thẳng Lớp 3), không chỉ ghi trong tài liệu.

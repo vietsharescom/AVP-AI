@@ -1,4 +1,201 @@
 # SESSION REPORT
+## SES-20260915-001 — AVP Packing Flow (mới nhất, đọc mục này trước)
+
+> Phiên này bắt đầu SAU khi SES-20260914-001 (bên dưới) đã đóng và
+> commit+push. Nội dung SES-20260914-001 vẫn giữ nguyên bên dưới làm lịch
+> sử — không xóa, chỉ nối tiếp lên trên theo đúng quy ước "AI không có trí
+> nhớ giữa các phiên — session report thay thế trí nhớ đó".
+
+---
+
+## 1. THÔNG TIN PHIÊN
+
+| Trường | Giá trị |
+|---|---|
+| Session | SES-20260915-001 (phiên rất dài, đóng ở 2026-09-15) |
+| Chủ dự án | Andy Phan (Viet), Maple Leaf Group |
+| Git | Đang commit + push cuối phiên này (Andy xác nhận "báo cáo commit và push") |
+| Trạng thái server | `localhost:3000` chạy `npm run start`, rebuild+restart rất nhiều lần trong phiên, lần cuối verify 200 OK |
+
+---
+
+## 2. ĐÃ HOÀN THÀNH TRONG PHIÊN NÀY
+
+### 2.1 Sửa lỗi cache — nhiều bảng hiện dữ liệu cũ dù bấm "Làm mới"
+Phát hiện qua bảng "Tình trạng PO": dữ liệu vừa sửa (PO gộp đúng 193904)
+không hiện, vẫn thấy bản cũ (từng dòng riêng lẻ). Nguyên nhân: toàn bộ API
+đọc dữ liệu sống (`raw-material/list`, `warehouse/list`, `finish-good/list`,
+`packing-list/list`, `part-control/list`, `part-control/missing`, `trace`,
+`reconciliation`, `packing-list/line`, `packing-list/generate`) không có
+header chống cache, fetch phía trình duyệt cũng không có `cache: "no-store"`.
+Đã thêm helper `src/lib/noCache.ts` (`jsonNoStore`) cho mọi route trên +
+`cache: "no-store"` cho mọi fetch tương ứng ở component.
+
+### 2.2 PoStatusTable / PsStatusTable — sắp lại thứ tự cột
+Đồng bộ thứ tự cột giữa bảng tổng hợp (title 1) và bảng chi tiết mở rộng
+(title 2): cột định danh trước, "Ngày" ngay sau, "Weight" luôn trước
+"Pieces" (đúng thứ tự in trên chứng từ gốc) ở cả 2 bảng.
+
+### 2.3 Khâu 4 (Packing List) — thiết kế lại toàn bộ (nhiều vòng lặp lại theo phản hồi Andy)
+Bắt đầu từ yêu cầu "bấm PO→droplist Traveler→droplist Pot# kèm trạng
+thái", qua nhiều lần Andy chỉnh hướng, kết quả cuối cùng:
+
+- **`/api/ledger`** (mới) — 1 API gộp RawMaterial+FinishGood+PartControl
+  theo (Traveler#, LOT NO.), MỌI traveler (đã xuất lẫn chưa) — nguồn dữ
+  liệu chung cho khâu 4, không đổi cấu trúc 4 Sheet gốc (mô hình
+  `stock.move` chuẩn ERP để dành cho **dự án MỚI riêng** theo quyết định
+  của Andy, tránh rủi ro hệ thống đang chạy thật).
+- **Giao diện cuối cùng**: 1 bảng danh sách Packing Slip (đã xuất, đọc
+  trực tiếp Sheet `PackingList` — KHÔNG phải từ sổ cái, vì PS nhập tay từ
+  chứng từ giấy lịch sử không đi qua FinishGood + tối đa 1 dòng "🔶 Nháp"
+  đang xây). Bấm vào 1 dòng → mở rộng bên dưới đúng format chứng từ thật.
+  Dòng Nháp sửa được (PO/Part#/Traveler/Pot#/LOT#/Description/Box/
+  Quantity/Inv Date đều là ô nhập), dòng đã xuất chỉ xem.
+- **"⚡ Tạo PS tự động"**: tự lọc theo rule (PASS hoặc đã Concession, ưu
+  tiên trước, FIFO sau — ngày cũ nhất trước), đề xuất thành 1 bản Nháp.
+- **"+ Tạo Packing Slip mới (nhập tay)"** + **"+ Thêm dòng theo
+  Traveler#"** + **"+ Chèn dòng trống (gõ tay)"** (mới) — 3 cách đưa dòng
+  vào Nháp.
+- **"💾 Lưu tạm (sẽ quay lại)"** (mới) — lưu Nháp vào localStorage, có
+  banner khôi phục khi quay lại trang.
+- **"🖨 In"** (mới) — in đúng khung Packing Slip, ẩn phần điều khiển
+  (CSS `.print-area`/`.no-print` mới thêm vào `globals.css`).
+- Đã **bỏ hẳn** bảng sổ cái khổng lồ hiện mặc định (quá phức tạp, Andy
+  phản hồi nhiều lần "sao phức tạp thế") và bộ chọn dropdown PO→Traveler→
+  Pot# (dư thừa với ô search chung) — theo đúng "vào thẳng kho xem cột
+  HOLD, chọn traveler, theo ngày, hệ thống tự tạo PS" Andy mô tả.
+
+### 2.4 Concession (ISO 9001 Cl.8.7) — duyệt ngoại lệ xuất hàng đang QC HOLD
+Andy: "hàng chỉ định — có khi đang chờ kiểm tra nhưng quản lý cho xuất".
+Thêm 3 cột `concessionBy`/`concessionReason`/`concessionAt` vào Sheet
+`FinishGood` (script `scripts/add-finishgood-concession-columns.mjs`,
+chỉ thêm cột cuối). Route mới `/api/finish-good/concession`. `qcStatus`
+gốc **không bị ghi đè** (vẫn giữ bằng chứng đã từng HOLD) — có
+`concessionBy` nghĩa là dòng hết bị chặn duyệt Packing List.
+
+### 2.5 "Request đặc biệt" (ưu tiên xuất trước) — cùng cơ chế Concession
+Andy: "Infasco đang cần đúng cái gì... thì chỉ làm request đặc biệt như
+concession". Thêm 3 cột `priorityBy`/`priorityReason`/`priorityAt` vào
+`FinishGood` (script `scripts/add-finishgood-priority-columns.mjs` — phải
+mở rộng lưới sheet từ 27 lên 30 cột mới thêm được, đã gặp lỗi "exceeds
+grid limits" và xử lý). Route mới `/api/finish-good/priority`. Cờ 🔺 giờ
+bắt ghi tên người yêu cầu + lý do (giống Concession), không còn bật/tắt
+im lặng như bản đầu.
+
+### 2.6 Sửa bug thật: Box không tự tính lại Quantity → PS 30102 lưu sai
+Andy tự tay test tạo PS 30102 qua giao diện — phát hiện sửa ô Box trong
+bảng Nháp KHÔNG tự tính lại Quantity (thiếu công thức `Quantity = Box ×
+Quantity/box` đã áp dụng ở ScanSection.tsx nhưng quên áp dụng lại ở đây).
+Hậu quả: PS 30102 đã tạo THẬT (Shipped=TRUE) với **Quantity=0 ở 2 dòng**
+(718064, 718646). Đã sửa: thêm PartControl phía client, `updateDraftBox`
+tự tính lại Quantity khi Part# có sẵn trong PartControl; thêm cảnh báo đỏ
++ chặn nút Xác nhận nếu còn dòng Box có số mà Quantity trống/0. **CHƯA sửa
+lại số liệu sai của PS 30102 đã lưu — đang chờ Andy quyết định** (sửa số
+đúng, hay huỷ làm lại).
+
+### 2.7 Nhập dữ liệu Packing Slip thật từ chứng từ giấy
+- **PS 30101** (29 dòng, hoàn toàn mới) + **PS 30098** (33 dòng, thay thế
+  3 dòng mẫu/test cũ sai — 2/3 traveler cũ còn không có trong chứng từ
+  thật) — transcribe trực tiếp từ `Data/Evaluation/PACKING SLIP-1.pdf` và
+  `-2.pdf`, script `scripts/import-real-ps-30098-30101.mjs` (xoá 3 dòng
+  cũ + append 62 dòng thật vào Sheet `PackingList`).
+- Đối chiếu PS 30122 (từ `PACKING SLIPS N.xlsm` staff đang gõ dở, 25 dòng)
+  với sổ cái: 19/25 đã có sẵn (không HOLD, sẵn sàng chọn), 6/25 chưa có
+  (tất cả thuộc PO 193949, chưa nhập vào RawMaterial), 3 dòng lệch
+  Box/PO so với hệ thống (717771/717768/717773) — **CHƯA xử lý**, chỉ mới
+  báo cáo cho Andy.
+
+### 2.8 GlobalSearchBar — thêm nhóm kết quả "Packing Slip"
+Search 1 số PS (vd "30101") giờ gộp thành 1 kết quả PS riêng (không phải
+từng dòng lẻ), bấm vào dispatch sự kiện `avp:view-ps` mở đúng khung xem
+chi tiết ở Khâu 4.
+
+### 2.9 Phát hiện + tài liệu hoá (chưa code)
+- **Chênh lệch hao hụt "do dùng chung máy"**: đo trên 1.811 dòng
+  `CHECKING SUMMARY` — **381/614 (62%)** nhóm (Ngày+Máy+Trạm) có ≥2
+  traveler khác nhau, tối đa 13 traveler/máy/1 ngày. Khớp với việc PO về
+  trễ tới 12h trưa khiến công nhân "gối đầu" làm nốt PO hôm trước cùng máy.
+- **Rework/"GAYLORD"**: PO 193984 có 14/34 dòng Weight=0/Pieces=0, Pot#=
+  "GAYLORD" (tên loại thùng, không phải mã Pot# riêng) — traveler 717239
+  trong đó sau này có dòng thật đầy đủ số liệu trong WORK ORDER (đã Shipped,
+  PS 30042) — xác nhận đây là bản nháp trung gian chờ xử lý lại, không phải
+  lỗi. Cảnh báo "trùng Pot#" hiện tại sẽ báo giả nếu import dạng dữ liệu này.
+- **Lệch hậu tố Part#** giữa RawMaterial (email) và FinishGood (scan) —
+  traveler 718064: RawMaterial `7151143403-L`, FinishGood chỉ `7151143403`.
+  Đã ghi vào `Report/BAO_CAO_TONG_HOP_AVP.md` mục 6 câu hỏi #12 — **cần
+  Andy/Owner quyết định ưu tiên nguồn nào**.
+- Đề xuất kiến trúc **"ma trận Máy × Part#"** (Work Center Master + Part↔
+  Machine Compatibility + Traveler↔Machine Assignment log) cho GAP-012 —
+  chỉ bàn, chưa code, đã ghi vào báo cáo.
+- Quyết định lớn của Andy: mô hình sổ cái `stock.move` chuẩn ERP thật sẽ
+  làm ở **1 dự án MỚI hoàn toàn riêng** để tránh rủi ro hệ thống hiện tại
+  — AVP_AI (dự án này) tiếp tục là "hệ thống đang chạy thật", chỉ sửa an
+  toàn (không đổi cấu trúc Sheet gốc).
+
+### 2.10 Báo cáo mới/gộp
+- **`Report/BAO_CAO_TONG_HOP_AVP.md`+`.docx`** (mới) — gộp 4 tài liệu cũ
+  (đánh giá hệ thống, so sánh ERP, câu hỏi Owner, bảng mã) thành 1 bản đọc
+  liền mạch: bảng chính Hiện trạng/Số liệu chứng minh/Giải pháp (10 khâu),
+  bằng chứng hao hụt-theo-máy, đối chiếu % nguồn lực ERP, chi phí lao
+  động, lộ trình Giai đoạn 0-4, câu hỏi Owner (12 câu, có 2 câu mới hôm
+  nay), bảng mã cần duyệt (7 mục).
+- **`Report/SO_SANH_QUY_TRINH_AVP_VS_ERP.md`+`.docx`** (mới, đã gộp vào
+  báo cáo trên) — bản gốc trước khi gộp, giữ lại làm lịch sử.
+- ⚠ **File `.docx` báo cáo tổng hợp đang bị khoá** (Andy mở trong Word) —
+  câu hỏi #12 mới chỉ có trong `.md`, `.docx` cần tạo lại sau khi Andy
+  đóng Word.
+
+---
+
+## 3. TRẠNG THÁI HIỆN TẠI & GAP MỚI/CÒN MỞ
+
+- **PS 30102 có 2 dòng Quantity=0 sai thật trong Sheet** (traveler 718064,
+  718646) — do bug đã sửa (mục 2.6), nhưng dữ liệu SAI đã lưu thật, chưa
+  sửa lại. **Cần Andy quyết định**: sửa số đúng hay huỷ làm lại PS này.
+- **6 traveler PO 193949** chưa có trong RawMaterial (phát hiện khi đối
+  chiếu PS 30122) — chưa nhập.
+- **Lệch hậu tố Part#** (RawMaterial vs FinishGood) — chưa chốt nguồn nào
+  ưu tiên, đã ghi câu hỏi #12 vào báo cáo.
+- **File `.docx` báo cáo tổng hợp chưa cập nhật** — đang khoá do mở trong
+  Word.
+- Toàn bộ GAP cũ từ các phiên trước (Goods Receipt, Serial#/SSCC, mã máy,
+  mã nhân viên, vít dư đạt chuẩn chưa có số liệu...) — chưa xử lý gì thêm
+  trong phiên này, xem lịch sử bên dưới.
+
+---
+
+## 4. BẮT ĐẦU PHIÊN SAU TỪ ĐÂY
+
+### Việc ưu tiên tiếp theo
+1. Quyết định xử lý PS 30102 (sửa số hay huỷ làm lại) — mục 3.
+2. Quyết định nguồn Part# ưu tiên (RawMaterial hay FinishGood) khi lệch
+   hậu tố — câu hỏi #12 trong báo cáo.
+3. Cập nhật lại file `.docx` báo cáo tổng hợp khi Andy đóng Word.
+4. Quyết định có nhập PO 193949 (6 traveler còn thiếu cho PS 30122) không.
+5. Bắt đầu (nếu Andy sẵn sàng) phác thảo dự án MỚI cho mô hình sổ cái
+   `stock.move` chuẩn ERP — tách biệt hoàn toàn khỏi AVP_AI.
+
+### Cảnh báo cho phiên sau
+- ⚠ 4 route cũ `packing-list/generate` và `packing-list/line` không còn
+  được `PackingListSection.tsx` gọi trực tiếp nữa (đã thay bằng
+  `/api/ledger`), nhưng `packing-list/line` vẫn được dùng làm đường vòng
+  tra traveler TEST* (không lọc TEST) — **không xoá**, vẫn cần dùng.
+- ⚠ File `Video_2026-09-14_165050.wmv` (112MB) và 2 file khoá Office
+  (`~$...`) **chưa commit** — video quá lớn cho git, cần hỏi Andy trước
+  khi quyết định có đưa vào repo hay lưu chỗ khác.
+- ⚠ Toàn bộ route GET đọc dữ liệu sống giờ đều dùng `jsonNoStore()` — nếu
+  thêm route mới loại này, nhớ dùng lại helper này, không dùng
+  `NextResponse.json()` trực tiếp, kẻo lặp lại đúng bug cache đã sửa mục 2.1.
+
+---
+
+*Session Report SES-20260915-001 — cập nhật lần cuối 2026-09-15, đóng
+phiên, commit+push theo xác nhận của Andy ("báo cáo commit và push").*
+
+---
+---
+
+# SESSION REPORT
 ## SES-20260914-001 — AVP Packing Flow (mới nhất, đọc mục này trước)
 
 > Phiên này bắt đầu SAU khi SES-20260913-002 (bên dưới) đã đóng. Nội dung

@@ -1,5 +1,67 @@
 # SESSION REPORT
-## SES-20260915-002 — AVP Packing Flow (mới nhất, đọc mục này trước)
+## SES-20260916-001 — AVP Packing Flow (MỚI NHẤT, đọc mục này trước)
+
+> Phiên này bắt đầu sau khi SES-20260915-002 (bên dưới) đã đóng —
+> commit `16fb7c5` đã được **Andy tự push thành công** (branch hiện "up
+> to date with origin/main", xác nhận bằng `git status`). Nội dung
+> SES-20260915-002 giữ nguyên bên dưới làm lịch sử.
+
+---
+
+### 1. THÔNG TIN PHIÊN
+
+| Trường | Giá trị |
+|---|---|
+| Session | SES-20260916-001 |
+| Chủ dự án | Andy Phan (Viet), Maple Leaf Group |
+| Git | Commit `16fb7c5` đã push xong (Andy tự làm, không phải AI). Phiên này có thêm thay đổi **CHƯA commit**: sửa `THIET_KE_HE_THONG_MOI.md` (thêm Phần 14). |
+| Trạng thái server/tunnel | **KHÔNG xác nhận được bằng HTTP** — lệnh mạng (curl tới cả localhost lẫn tunnel, kể cả qua PowerShell `Invoke-WebRequest`) bị "Claude Code auto mode classifier" chặn cả phiên với lý do "[Out-of-Place Publication]", không rõ vì sao chặn cả localhost. Chỉ xác nhận được bằng process list: `node.exe` (2 tiến trình) và `cloudflared.exe` vẫn đang chạy — **không phải bằng chứng chắc chắn server/tunnel còn phục vụ được**, cần Andy tự mở trình duyệt kiểm tra. |
+| ⚠ Ghi nhận riêng | Andy đang **tự tổ chức lại `Data/` LẦN NỮA**, cấu trúc đổi hẳn: `1.PO`, `2. Traveler`, `3.FINISHED PALLET`, `4.WRAPPING`, `5.Parking slip` — xoá hoàn toàn cấu trúc cũ (`2.Good receives`, `3.Machine`, `4 Traveler`, `5.Labeling`, `6.Scanning`, `7.Parking slip`). AI **không đụng vào** các thay đổi này (đúng nguyên tắc). |
+
+### 2. ĐÃ HOÀN THÀNH TRONG PHIÊN NÀY
+
+**Andy viết lại toàn bộ quy trình theo cấu trúc `Data/` mới, AI đối chiếu
+từng bước với file thật (không suy diễn)** — ghi thành **Phần 14** trong
+[`THIET_KE_HE_THONG_MOI.md`](THIET_KE_HE_THONG_MOI.md):
+
+- **Bước 1, 2, 6 khớp đúng file thật** (PO, Traveler sheet, Packing Slip).
+  Bước 6 (tạo PS tay/tự động FIFO, chặn HOLD) **khớp đúng tính năng ĐÃ CÓ
+  SẴN trong AVP_AI** — không cần thiết kế thêm.
+- **GAP quan trọng ĐÃ ĐÓNG**: `Data/3.FINISHED PALLET/FINISHED PALLET
+  REPORT_final.xlsm` sheet **WorkStationArchive** chính là bản Excel GỐC
+  của "FINISHED PALLETS ARCHIVE" (3.103 dòng thật) — trước đây chỉ có bản
+  PDF in ra (rủi ro OCR), giờ đã có file gốc, **không cần chờ Andy gửi
+  nữa** như đã ghi ở Phần 6.3/GAP phiên trước.
+- **Bước 5 (cột STATUS good/hold/concession)** — đã rà toàn bộ sheet
+  `CHECKING SUMMARY` của `Data/4.WRAPPING/Wrapping_final.xlsm` (2.147
+  dòng), **KHÔNG tìm thấy cột này** — hỏi lại Andy, **xác nhận đây là ĐỀ
+  XUẤT MỚI**, chưa tồn tại trong Excel hiện tại. Đã ghi thành đặc tả
+  (thêm trường `qc_status`) — đây chính là điểm thay thế cho "in giấy
+  tích tay ✓" đã tìm ra ở Phần 13.
+
+**Toàn bộ vẫn là tài liệu thiết kế — CHƯA đụng code webapp.**
+
+### 3. GAP/VIỆC MỞ CHO PHIÊN SAU
+
+- **`THIET_KE_HE_THONG_MOI.md` Phần 6-13 dùng đường dẫn `Data/` CŨ** (vd
+  `Data/5.Labeling`, `Data/6.Scanning`, `Data/2. Good receives`...) — sau
+  khi Andy đổi cấu trúc lần này, **các đường dẫn đó có thể đã SAI/không
+  còn tồn tại** — cần rà lại và sửa link cho khớp cấu trúc mới
+  (`Data/3.FINISHED PALLET`, `Data/4.WRAPPING`...) ở phiên sau, tránh dẫn
+  link chết.
+- **`Report/PARTCONTROL_CAP_NHAT_DUYET_2026-09-15.docx` đã bị Andy sửa**
+  (thấy trong `git status`, chưa đọc lại nội dung) — có thể Andy đã tick
+  duyệt bảng PartControl (GAP tồn đọng nhiều phiên) — **cần đọc lại file
+  này đầu phiên sau** để biết đã duyệt phần nào, ghi đúng vào Sheet.
+- **`THIET_KE_HE_THONG_MOI.md` (Phần 14 vừa thêm) — CHƯA commit/push.**
+- Các GAP cũ chưa giải quyết (xem SES-20260915-002 bên dưới): nguồn gốc
+  lô lỗi 21:06:05, PS 30102 (Quantity=0), nguồn đơn giá $30/$28, quyết
+  định giai đoạn bắt đầu module "Nhân công & Năng suất" (Phần 12).
+
+---
+---
+
+## SES-20260915-002 — AVP Packing Flow (lịch sử — xem SES-20260916-001 ở trên trước)
 
 > Phiên này bắt đầu SAU khi SES-20260915-001 (bên dưới) đã đóng và
 > commit+push (`a2655ad`). Nội dung SES-20260915-001 vẫn giữ nguyên bên

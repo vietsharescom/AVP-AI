@@ -636,3 +636,58 @@ báo cáo Scanning) đã nhanh, tự động, không cần sửa. Vấn đề n�
 
 *Chưa code — đây là đề bài/đặc tả, chờ Owner xác nhận bắt đầu triển
 khai.*
+
+---
+
+## PHẦN 14 — QUY TRÌNH CẬP NHẬT MỚI NHẤT (2026-09-16, Owner tự viết lại,
+đã đối chiếu file thật)
+
+*Owner viết lại toàn bộ quy trình theo cấu trúc thư mục `Data/` mới nhất
+(đã đơn giản hoá: bỏ hẳn "Good receives", gộp "Machine" vào Traveler,
+đổi "Labeling"→"FINISHED PALLET", gộp "Scanning" vào "WRAPPING"). Đã đối
+chiếu TỪNG bước với file thật, không suy diễn.*
+
+### 14.1 6 bước — đã xác nhận đúng file thật (1, 2, 3, 4, 6)
+
+| # | Bước | File thật đã đối chiếu | Kết quả đối chiếu |
+|---|---|---|---|
+| 1 | PO từ nhà cung cấp qua email/file | [`Data/1.PO/PO PO SEP 8_193853.pdf`](Data/1.PO/PO%20PO%20SEP%208_193853.pdf) | Tồn tại thật, đúng tên |
+| 2 | Nguyên liệu về kèm Pot#+Traveler, số liệu tạm nhận theo PO | [`Data/2. Traveler/TRAVELER SHEETS SEP 9.pdf`](Data/2.%20Traveler/TRAVELER%20SHEETS%20SEP%209.pdf) | Tồn tại thật |
+| 3 | Lựa tại từng station, đầu ra đếm bằng sensor | (đã xác nhận ở Phần 8.2 — sensor tại khâu lựa là nguồn số lượng chính thức) | Khớp với phát hiện trước |
+| 4 | Công nhân ghi phiếu → nhập vào database **WorkStationArchive** | [`Data/3.FINISHED PALLET/FINISHED PALLET REPORT_final.xlsm`](Data/3.FINISHED%20PALLET/FINISHED%20PALLET%20REPORT_final.xlsm) sheet **WorkStationArchive** | **Xác nhận đúng 100%** — đây chính là "FINISHED PALLETS ARCHIVE" đã đọc bản PDF ở Phần 7, nay có **file Excel gốc thật** (3.103 dòng, cột: Traveler/Part Number/Pot/Serial#/Lot/Skid#/Station#/OPERATOR/# of boxes/Unit Quantity/Total Quantity/Date/Notes) — **GAP "chưa có Excel gốc" ở Phần 6.3 đã ĐÓNG**, không cần đợi Owner gửi nữa. |
+| 6 | Xuất Packing Slip — tạo tay (chọn Traveler/PO/Part, hàng HOLD không được xuất) hoặc tạo tự động đề xuất FIFO | [`Data/5.Parking slip/PACKING SLIP- SEP 09.pdf`](Data/5.Parking%20slip/PACKING%20SLIP-%20SEP%2009.pdf) | **Khớp đúng tính năng ĐÃ CÓ SẴN trong AVP_AI** (bảng picker chọn nhiều + "Tạo PS tự động" FIFO, xem SES-20260915-002 mục 2.1) — không cần thiết kế thêm, chỉ cần đảm bảo chặn HOLD đúng như Phần 13. |
+
+### 14.2 Bước 5 — CỘT STATUS (good/hold/concession): ĐÃ XÁC NHẬN LÀ ĐỀ XUẤT MỚI, chưa tồn tại
+
+Owner mô tả: sau khi in bảng Wrapping
+([`Data/4.WRAPPING/Wrapping_final.xlsm`](Data/4.WRAPPING/Wrapping_final.xlsm))
+và đi đối chiếu thực tế, nhân viên **cập nhật vào 1 cột STATUS** với 3 giá
+trị: **good** (sẵn sàng xuất), **hold** (giữ lại), **concession** (nhượng
+bộ khi có nhu cầu xuất sớm — đúng ISO 9001 §8.7 đã dùng trong thiết kế
+trước).
+
+Đã rà toàn bộ sheet **CHECKING SUMMARY** của `Wrapping_final.xlsm` (2.147
+dòng, 29 cột) — **KHÔNG tìm thấy cột STATUS hay bất kỳ giá trị
+good/hold/concession nào**. Owner xác nhận trực tiếp: **đây là đề xuất
+MỚI cho AVP_AI, chưa tồn tại trong Excel hiện tại** — không phải hiện
+trạng bị bỏ sót.
+
+→ Việc cần làm (đặc tả, chưa code): thêm 1 trường **`qc_status`** (giá
+trị `good` / `hold` / `concession`) vào bản ghi theo Traveler#, do nhân
+viên cập nhật SAU KHI đối chiếu thực tế với bảng Wrapping in ra — đây
+chính là điểm **CCP con người** thay thế cho việc "in giấy tích tay ✓"
+đã mô tả ở Phần 13.2 — nhân viên vẫn đi đối chiếu thực tế (không bỏ bước
+kiểm tra vật lý), nhưng kết quả được **gõ 1 lần vào đúng 1 trường**, thay
+vì tích tay trên giấy rồi không ai tổng hợp lại được.
+
+### 14.3 Cập nhật sơ đồ chuỗi (thay thế sơ đồ cũ ở Phần 6.1)
+
+```
+[1.PO] → [2.Traveler — nhận Pot#/nguyên liệu] → [3.Máy/tay lựa, sensor đếm]
+   → [4.FINISHED PALLET — WorkStationArchive: Serial#/Skid#/Qty/Date]
+   → [5.WRAPPING — in bảng, đối chiếu thực tế, gõ qc_status: good/hold/concession] (MỚI)
+   → [6.Parking slip — tạo tay (chặn HOLD) hoặc tự động FIFO] (đã có sẵn trong AVP_AI)
+```
+
+*Chưa code phần 14.2 (trường `qc_status` mới) — đây là đặc tả, chờ Owner
+xác nhận triển khai cùng lúc với module Phần 13.*
